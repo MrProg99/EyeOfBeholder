@@ -1626,7 +1626,7 @@ function showLevelUpModal(char) {
         magic: 'Magie'
     };
     const statDescriptions = {
-        strength: '+0.5% dommages par point',
+        strength: '+1% dommages par point',
         intelligence: '+1 mana max par point',
         vitality: '+2 PV max par point',
         perception: '+1% chance de coup critique par point',

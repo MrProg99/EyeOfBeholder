@@ -6,6 +6,48 @@ class Dungeon {
         this.generateTower();
     }
 
+    ensureMinimumCombatRooms(rooms, minimumCombatRooms = 3) {
+        if (!Array.isArray(rooms) || rooms.length === 0) {
+            return;
+        }
+
+        const countCombatRooms = () => rooms.reduce((count, room) => (
+            room && room.type === 'monster' ? count + 1 : count
+        ), 0);
+
+        let combatRooms = countCombatRooms();
+        if (combatRooms >= minimumCombatRooms) {
+            return;
+        }
+
+        const regularCandidates = [];
+        const stairCandidates = [];
+
+        rooms.forEach((room) => {
+            if (!room || room.type === 'monster' || room.type === 'rest') {
+                return;
+            }
+            if (room.hasStairs) {
+                stairCandidates.push(room);
+                return;
+            }
+            regularCandidates.push(room);
+        });
+
+        const candidates = [...regularCandidates, ...stairCandidates];
+        for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+        }
+
+        while (combatRooms < minimumCombatRooms && candidates.length > 0) {
+            const room = candidates.pop();
+            room.type = 'monster';
+            room.monsterCount = Math.floor(Math.random() * 3) + 1;
+            combatRooms++;
+        }
+    }
+
     generateTower() {
         for (let floor = 0; floor < 10; floor++) { // 10 floors for example
             const rooms = [];
@@ -53,6 +95,7 @@ class Dungeon {
                 rooms[11].monsterCount = 1;
                 rooms[11].forcedMonsterType = 'spider_queen';
             }
+            this.ensureMinimumCombatRooms(rooms, 3);
             this.floors.push(rooms);
         }
     }

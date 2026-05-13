@@ -1135,7 +1135,7 @@ class Character {
     }
 
     getBaseStrengthDamageMultiplier() {
-        return 1 + (Math.max(0, this.strength) * 0.005);
+        return 1 + (Math.max(0, this.strength) * 0.01);
     }
 
     getStrengthDamageMultiplier() {
