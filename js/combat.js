@@ -57,7 +57,7 @@ const MONSTER_DATA = {
         defense: 2,
         role: 'kobold',
         damageResistances: { poison: 8 },
-        image: 'Images/kobold.png',
+        image: 'Images/Kobold.png',
         abilities: ['Attaque basique rapide']
     },
     kobold_chief: {
@@ -72,7 +72,7 @@ const MONSTER_DATA = {
         summonType: 'kobold',
         summonCount: 2,
         damageResistances: { physical: 10, poison: 15 },
-        image: 'Images/chefkobold.png',
+        image: 'Images/ChefKobold.png',
         abilities: ['Appel de renforts: +2 kobolds tous les 2 tours', 'Attaque basique lourde']
     },
     green_slime: {
