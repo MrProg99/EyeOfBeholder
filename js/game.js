@@ -68,6 +68,7 @@ const POTION_DROP_CHANCE = 0.15;
 const SHAMAN_ENCOUNTER_CHANCE = 0.3;
 const KOBOLD_WARBAND_ENCOUNTER_CHANCE = 0.24;
 const MAX_MONSTERS_IN_COMBAT = 8;
+const MONSTER_TURN_VISUAL_DELAY_MS = 1500;
 const PERCEPTION_EVENT_BASE_CHANCE = 0.05;
 const PERCEPTION_EVENT_PER_POINT = 0.0125;
 const PERCEPTION_EVENT_MAX_CHANCE = 0.7;
@@ -1852,6 +1853,9 @@ function updateCombatUI() {
     aliveMonsters.forEach((m, idx) => {
         const md = document.createElement('div');
         md.className = 'combat-monster-row';
+        if (m === activeEntity) {
+            md.classList.add('active-turn');
+        }
         const roleTags = [];
         if (typeof m.isShaman === 'function' && m.isShaman()) {
             roleTags.push('Shaman');
@@ -1910,13 +1914,14 @@ function updateCombatUI() {
 
     // Center info + action buttons depend on whose turn it is
     if (!activeChar) {
-        activeDiv.style.display = 'block';
         if (activeSummon) {
+            activeDiv.style.display = 'block';
             activeDiv.innerHTML = `<div><strong>Tour de ${activeEntity.name}</strong><br>L'invocation agit automatiquement...</div>`;
             centerActions.innerHTML = '<button type="button" disabled>Tour de l invocation...</button>';
         } else {
-            activeDiv.innerHTML = `<div><strong>Tour de ${activeEntity.name}</strong><br>Le monstre agit...</div>`;
-            centerActions.innerHTML = '<button type="button" disabled>Tour du monstre...</button>';
+            activeDiv.innerHTML = '';
+            activeDiv.style.display = 'none';
+            centerActions.innerHTML = '';
         }
     } else {
         activeDiv.innerHTML = '';
@@ -2389,7 +2394,7 @@ function advanceCombatFlow() {
 
             moveToNextCombatTurn();
             advanceCombatFlow();
-        }, 520);
+        }, MONSTER_TURN_VISUAL_DELAY_MS);
         return;
     }
 

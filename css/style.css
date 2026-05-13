@@ -1492,6 +1492,13 @@ button:hover {
     max-width: 340px;
     min-height: 220px;
     flex: 0 1 clamp(230px, 28vw, 340px);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.combat-monster-row.active-turn {
+    border-color: #ee7f6a;
+    box-shadow: 0 0 0 2px rgba(238, 127, 106, 0.35);
+    background-color: #3d2a27;
 }
 
 .combat-monster-row + .combat-monster-row {
