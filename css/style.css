@@ -177,24 +177,29 @@ h3 {
     position: absolute;
     top: 12px;
     left: 12px;
-    width: min(920px, calc(100% - 24px));
+    width: calc(100% - 24px);
+    height: calc(100% - 24px);
     padding: 20px;
     border: 1px solid #3a3a3a;
     border-radius: 10px;
     background: rgba(20, 20, 20, 0.92);
     backdrop-filter: blur(2px);
     z-index: 2;
+    display: flex;
+    flex-direction: column;
 }
 
 #map {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(3, 102px);
+    grid-template-rows: repeat(3, minmax(0, 1fr));
     gap: 11px;
     background-color: #0b0b0b;
     padding: 14px;
     border-radius: 8px;
     margin-bottom: 16px;
+    flex: 1;
+    min-height: 0;
 }
 
 .room {
@@ -301,9 +306,15 @@ h3 {
     grid-template-areas:
         '. up .'
         'left down right'
-        'stairs rest rest'
-        'bestiary bestiary bestiary';
+        'stairs rest .';
     gap: 6px;
+    width: min(680px, 100%);
+    align-self: center;
+}
+
+#controls button {
+    padding: 7px 10px;
+    font-size: 14px;
 }
 
 #move-up {
@@ -330,8 +341,23 @@ h3 {
     grid-area: rest;
 }
 
-#open-bestiary {
-    grid-area: bestiary;
+#character-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+#character-panel-header h3 {
+    margin: 0;
+}
+
+#character-panel-header #open-bestiary {
+    margin-left: auto;
+    width: auto;
+    min-width: 130px;
+    padding: 7px 12px;
 }
 
 #utility-panel {
@@ -1525,6 +1551,7 @@ button:hover {
     #map-panel {
         position: static;
         width: 100%;
+        height: auto;
         max-width: none;
         border-radius: 0;
         border-left: none;

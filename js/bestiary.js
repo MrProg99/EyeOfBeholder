@@ -47,4 +47,30 @@ function renderBestiaryTable() {
     });
 }
 
+function bindBestiaryReturnLink() {
+    const returnLink = document.getElementById('bestiary-return-link');
+    if (!returnLink) {
+        return;
+    }
+
+    returnLink.addEventListener('click', (event) => {
+        if (window.opener && !window.opener.closed) {
+            event.preventDefault();
+            try {
+                window.opener.focus();
+            } catch (_) {
+                // Ignore focus errors and still close this tab.
+            }
+            window.close();
+            return;
+        }
+
+        if (window.history.length > 1) {
+            event.preventDefault();
+            window.history.back();
+        }
+    });
+}
+
+bindBestiaryReturnLink();
 renderBestiaryTable();

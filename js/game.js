@@ -3780,7 +3780,11 @@ window.addEventListener('keydown', (event) => {
 const openBestiaryButton = document.getElementById('open-bestiary');
 if (openBestiaryButton) {
     openBestiaryButton.addEventListener('click', () => {
-        window.location.href = 'bestiary.html';
+        const bestiaryTab = window.open('bestiary.html', '_blank');
+        if (!bestiaryTab) {
+            // Fallback if popups/new tabs are blocked by the browser.
+            window.location.href = 'bestiary.html';
+        }
     });
 }
 
