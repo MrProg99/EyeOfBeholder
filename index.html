@@ -1,0 +1,120 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eye of Beholder - Dungeon Crawler</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="splash-screen">
+        <div id="splash-content">
+            <h1>Eye of Beholder</h1>
+            <p>Montez les 10 etages pour vaincre le Balrog.</p>
+            <p id="splash-party-instructions">Choisissez 3 personnages pour former votre groupe.</p>
+            <div id="splash-party-selection"></div>
+            <p id="splash-party-status"></p>
+            <button id="splash-continue" type="button">Continuer</button>
+        </div>
+    </div>
+    <div id="game-container">
+        <div id="main-content">
+            <div id="viewport-wrapper">
+                <canvas id="game-canvas" width="1280" height="720"></canvas>
+                <div id="map-panel">
+                    <h3 id="map-panel-title">Plan de l'etage</h3>
+                    <div id="map"></div>
+                    <div id="controls">
+                        <button id="move-up">Haut</button>
+                        <button id="move-down">Bas</button>
+                        <button id="move-left">Gauche</button>
+                        <button id="move-right">Droite</button>
+                        <button id="climb-stairs">Monter Escalier</button>
+                        <button id="rest">Se Reposer</button>
+                        <button id="open-bestiary" type="button">Bestiaire</button>
+                    </div>
+                </div>
+            </div>
+            <div id="utility-panel">
+                <div id="message-log">
+                    <h3>Messages</h3>
+                    <div id="messages"></div>
+                </div>
+            </div>
+        </div>
+        <div id="character-panel">
+            <h3>Personnages</h3>
+            <div id="characters"></div>
+        </div>
+    </div>
+    <div id="combat-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 999999;">
+        <div id="combat-content" style="background: #333; color: #fff; padding: clamp(10px, 1.4vw, 24px); border-radius: 0; width: 100vw; height: 100vh; min-height: 100vh; max-height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+            <h2 style="margin:0 0 8px 0;">Combat</h2>
+            <div id="combat-modal-monster" style="border: 1px solid #666; padding: 10px; background:#2b2b2b; min-height:84px;">
+                <!-- Monster info shown here (top) -->
+            </div>
+
+            <div id="combat-modal-center" style="border: 1px solid #666; padding: 10px; background:#222; display:flex; flex:1; min-height:280px; gap:12px; align-items:flex-start;">
+                <div id="combat-modal-turn-order" style="width:270px; min-height:160px; border:1px solid #555; border-radius:6px; padding:8px; background:#1a1a1a; display:flex; flex-direction:column;">
+                    <h4 style="margin:0 0 8px 0; font-size:14px;">Ordre des tours</h4>
+                    <div id="combat-turn-order-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+                </div>
+                <div id="combat-modal-center-info" style="flex:1; min-height:160px; display:flex; flex-direction:column;">
+                    <div id="combat-modal-active" style="min-height:56px;"></div>
+                    <div id="combat-modal-log" style="margin-top:8px; background:#111; padding:6px; color:#fff; height:min(34vh, 320px); overflow:auto; border-radius:4px;"></div>
+                </div>
+                <div id="combat-modal-center-actions" style="width:340px; display:grid; grid-template-columns:1fr; gap:8px;">
+                    <!-- Action buttons -->
+                </div>
+            </div>
+
+            <div id="combat-modal-characters" style="border: 1px solid #666; padding: 10px; background:#2b2b2b; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:stretch; min-height:min(42vh, 360px);">
+                <!-- Character stats displayed here (bottom) -->
+            </div>
+        </div>
+    </div>
+    <div id="level-up-modal" style="display: none;">
+        <div id="level-up-content">
+            <h2>Niveau Superieur !</h2>
+            <div id="level-up-info"></div>
+            <div id="level-up-choices"></div>
+        </div>
+    </div>
+    <div id="inventory-modal" style="display: none;">
+        <div id="inventory-content">
+            <h2>Fiche personnage</h2>
+            <div id="inventory-character-name"></div>
+            <div id="inventory-layout">
+                <div class="inventory-section">
+                    <h3>Equipement</h3>
+                    <div id="inventory-slots"></div>
+                </div>
+                <div class="inventory-section">
+                    <h3 id="inventory-picker-title">Inventaire</h3>
+                    <div id="inventory-picker"></div>
+                </div>
+            </div>
+            <button id="inventory-close" type="button">Fermer</button>
+        </div>
+    </div>
+    <div id="chest-modal" style="display: none;">
+        <div id="chest-content">
+            <h2>Coffre cache</h2>
+            <img id="chest-modal-image" src="Images/coffre.png" alt="Coffre cache">
+            <div id="chest-modal-description"></div>
+            <div id="chest-modal-options"></div>
+        </div>
+    </div>
+    <div id="game-over-modal" style="display: none;">
+        <div id="game-over-content">
+            <h2>Game Over</h2>
+            <p>Tous les heros sont morts. L aventure est terminee.</p>
+            <button id="game-over-restart" type="button">Recommencer</button>
+        </div>
+    </div>
+    <script src="js/character.js"></script>
+    <script src="js/dungeon.js"></script>
+    <script src="js/combat.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>

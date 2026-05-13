@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bestiaire - Eye of Beholder</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bestiary-page">
+    <main class="bestiary-layout">
+        <header class="bestiary-header">
+            <div>
+                <h1>Bestiaire</h1>
+                <p class="bestiary-subtitle">Tableau des monstres rencontres avec leurs capacites principales.</p>
+            </div>
+            <a class="bestiary-link" href="index.html">Retour au jeu</a>
+        </header>
+        <section class="bestiary-table-wrap">
+            <table class="bestiary-table" aria-label="Bestiaire des monstres">
+                <thead>
+                    <tr>
+                        <th>Monstre</th>
+                        <th>PV</th>
+                        <th>Attaque</th>
+                        <th>Defense</th>
+                        <th>Capacites</th>
+                    </tr>
+                </thead>
+                <tbody id="bestiary-table-body"></tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="js/combat.js"></script>
+    <script src="js/bestiary.js"></script>
+</body>
+</html>
