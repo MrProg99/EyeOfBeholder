@@ -73,8 +73,8 @@ const PERCEPTION_EVENT_PER_POINT = 0.0125;
 const PERCEPTION_EVENT_MAX_CHANCE = 0.7;
 const PERCEPTION_EVENT_WEIGHTS = {
     chest: 0.45,
-    surprise: 0.3,
-    trap: 0.25
+    surprise: 0,
+    trap: 0.55
 };
 const CHEST_ROGUE_OPEN_BASE_CHANCE = 0.45;
 const CHEST_ROGUE_OPEN_PERCEPTION_BONUS = 0.02;
@@ -944,7 +944,7 @@ function initGame(selection = DEFAULT_PARTY_CLASSES) {
 }
 
 function updateUI() {
-    logMessage(`Ã‰tage ${dungeon.currentFloor + 1}, Salle ${dungeon.currentRoom.x + dungeon.currentRoom.y * 4 + 1}`);
+    logMessage(`Étage ${dungeon.currentFloor + 1}, Salle ${dungeon.currentRoom.x + dungeon.currentRoom.y * 4 + 1}`);
     const room = dungeon.getCurrentRoom();
     
     // First, create monster(s) if needed
@@ -3646,21 +3646,6 @@ function triggerPerceptionTrapEvent(perceptionScore) {
     }
 }
 
-function triggerPerceptionSurpriseAttackEvent(room, perceptionScore) {
-    if (!room) {
-        return;
-    }
-
-    logMessage(`Perception (${perceptionScore}) : vous detectez une attaque surprise imminente !`);
-
-    const encounterRoll = Math.random();
-    const encounterCount = encounterRoll < 0.2 ? 3 : (encounterRoll < 0.65 ? 2 : 1);
-    room.type = 'monster';
-    room.monsterCount = encounterCount;
-
-    logMessage(`${encounterCount} ennemi(s) vous tendent une embuscade.`);
-}
-
 function rollPerceptionEventOnMove() {
     const room = dungeon.getCurrentRoom();
     if (!room || room.type !== 'empty') {
@@ -3684,23 +3669,10 @@ function rollPerceptionEventOnMove() {
             triggerPerceptionChestEvent(perceptionScore);
             return;
         }
-
-        if (eventRoll < PERCEPTION_EVENT_WEIGHTS.chest + PERCEPTION_EVENT_WEIGHTS.surprise) {
-            triggerPerceptionSurpriseAttackEvent(room, perceptionScore);
-            return;
-        }
-
         triggerPerceptionTrapEvent(perceptionScore);
         return;
     }
 
-    const remainingWeight = PERCEPTION_EVENT_WEIGHTS.surprise + PERCEPTION_EVENT_WEIGHTS.trap;
-    const surpriseRatio = remainingWeight > 0 ? (PERCEPTION_EVENT_WEIGHTS.surprise / remainingWeight) : 0.5;
-    const eventRollWithoutChest = Math.random();
-    if (eventRollWithoutChest < surpriseRatio) {
-        triggerPerceptionSurpriseAttackEvent(room, perceptionScore);
-        return;
-    }
     triggerPerceptionTrapEvent(perceptionScore);
 }
 

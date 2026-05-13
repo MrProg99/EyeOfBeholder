@@ -200,6 +200,8 @@ h3 {
     margin-bottom: 16px;
     flex: 1;
     min-height: 0;
+    width: 100%;
+    height: 100%;
 }
 
 .room {
@@ -298,6 +300,30 @@ h3 {
     box-shadow:
         inset 0 0 0 2px rgba(0, 255, 120, 0.95),
         0 0 8px rgba(63, 234, 142, 0.45);
+}
+
+.room {
+    --tile-image: url('../Images/pierre.png');
+    background-image: var(--tile-image), var(--tile-image);
+    background-size: contain, cover;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
+}
+
+.room.stairs,
+.room.stairs.monster {
+    --tile-image: url('../Images/escalier.png');
+}
+
+.room.monster {
+    --tile-image: url('../Images/BandeMonstre.png');
+}
+
+.room.current,
+.room.stairs.current,
+.room.monster.current,
+.room.rest.current {
+    --tile-image: url('../Images/BandeHeroes.png');
 }
 
 #controls {
