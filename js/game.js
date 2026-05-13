@@ -1501,7 +1501,7 @@ function startCombat() {
     // Clear previous combat modal log so old combat messages don't remain
     const combatLog = document.getElementById('combat-modal-log');
     if (combatLog) combatLog.innerHTML = '';
-    logMessage('Combat au tour par tour commencÃ©.');
+    logMessage('Combat au tour par tour commence.');
     const initiativeSummary = combatTurnOrder
         .map((entity) => `${entity.name}(${entity.combatInitiative})`)
         .join(' > ');
@@ -1910,6 +1910,7 @@ function updateCombatUI() {
 
     // Center info + action buttons depend on whose turn it is
     if (!activeChar) {
+        activeDiv.style.display = 'block';
         if (activeSummon) {
             activeDiv.innerHTML = `<div><strong>Tour de ${activeEntity.name}</strong><br>L'invocation agit automatiquement...</div>`;
             centerActions.innerHTML = '<button type="button" disabled>Tour de l invocation...</button>';
@@ -1918,15 +1919,8 @@ function updateCombatUI() {
             centerActions.innerHTML = '<button type="button" disabled>Tour du monstre...</button>';
         }
     } else {
-        const weaknessText = typeof activeChar.getAttackWeaknessText === 'function' ? activeChar.getAttackWeaknessText() : '';
-        const webText = typeof activeChar.getWebStatusText === 'function' ? activeChar.getWebStatusText() : '';
-        const coldNumbText = typeof activeChar.getColdNumbStatusText === 'function' ? activeChar.getColdNumbStatusText() : '';
-        const burnText = typeof activeChar.getBurnStatusText === 'function' ? activeChar.getBurnStatusText() : '';
-        const infectionText = typeof activeChar.getInfectionStatusText === 'function' ? activeChar.getInfectionStatusText() : '';
-        const protectionText = typeof activeChar.getProtectionStatusText === 'function' ? activeChar.getProtectionStatusText() : '';
-        const debuffText = [weaknessText, webText, coldNumbText, burnText, infectionText, protectionText].filter(Boolean).join(' | ');
-        const activeAttack = typeof activeChar.getCurrentAttack === 'function' ? activeChar.getCurrentAttack() : activeChar.attack;
-        activeDiv.innerHTML = `<div><strong>${activeChar.name}</strong> (${activeChar.classType})<br>PV: ${activeChar.health}/${activeChar.maxHealth}` + (usesManaResource(activeChar) ? ` | Mana: ${activeChar.mana}/${activeChar.maxMana}` : '') + `<br>Attaque: ${activeAttack}` + (debuffText ? ` | ${debuffText}` : '') + `</div>`;
+        activeDiv.innerHTML = '';
+        activeDiv.style.display = 'none';
 
         const abilities = activeChar.getAbilities();
         abilities.forEach(action => {
@@ -2085,6 +2079,38 @@ function updateCombatUI() {
                     : `Invocation (${ally.ownerName || 'allie'})`
             )
             : ally.classType;
+        const miniStatuses = [];
+        const miniWeaknessText = typeof ally.getAttackWeaknessText === 'function' ? ally.getAttackWeaknessText() : '';
+        if (miniWeaknessText) {
+            miniStatuses.push(miniWeaknessText);
+        }
+        const miniWebText = typeof ally.getWebStatusText === 'function' ? ally.getWebStatusText() : '';
+        if (miniWebText) {
+            miniStatuses.push(miniWebText);
+        }
+        const miniColdNumbText = typeof ally.getColdNumbStatusText === 'function' ? ally.getColdNumbStatusText() : '';
+        if (miniColdNumbText) {
+            miniStatuses.push(miniColdNumbText);
+        }
+        const miniBurnText = typeof ally.getBurnStatusText === 'function' ? ally.getBurnStatusText() : '';
+        if (miniBurnText) {
+            miniStatuses.push(miniBurnText);
+        }
+        const miniInfectionText = typeof ally.getInfectionStatusText === 'function' ? ally.getInfectionStatusText() : '';
+        if (miniInfectionText) {
+            miniStatuses.push(miniInfectionText);
+        }
+        const miniProtectionText = typeof ally.getProtectionStatusText === 'function' ? ally.getProtectionStatusText() : '';
+        if (miniProtectionText) {
+            miniStatuses.push(miniProtectionText);
+        }
+        const miniStatusHtml = miniStatuses.length > 0
+            ? `
+            <div class="combat-character-statuses">
+                ${miniStatuses.map((statusText) => `<div class="combat-character-status">${statusText}</div>`).join('')}
+            </div>
+            `
+            : '';
         mini.innerHTML = `
             ${portraitPath ? `
             <div class="combat-portrait-wrap">
@@ -2092,33 +2118,17 @@ function updateCombatUI() {
                 ${damageNumberHtml}
             </div>
             ` : ''}
-            <strong>${ally.name}</strong><br>${allyRoleText}
-            ${resourceBarsHtml}
+            <div class="combat-character-summary-row">
+                <div class="combat-character-identity">
+                    <strong class="combat-character-name">${ally.name}</strong>
+                    <div class="combat-character-role">${allyRoleText}</div>
+                </div>
+                <div class="combat-character-bars">
+                    ${resourceBarsHtml}
+                </div>
+            </div>
+            ${miniStatusHtml}
         `;
-        const miniWeaknessText = typeof ally.getAttackWeaknessText === 'function' ? ally.getAttackWeaknessText() : '';
-        if (miniWeaknessText) {
-            mini.innerHTML += `<br>${miniWeaknessText}`;
-        }
-        const miniWebText = typeof ally.getWebStatusText === 'function' ? ally.getWebStatusText() : '';
-        if (miniWebText) {
-            mini.innerHTML += `<br>${miniWebText}`;
-        }
-        const miniColdNumbText = typeof ally.getColdNumbStatusText === 'function' ? ally.getColdNumbStatusText() : '';
-        if (miniColdNumbText) {
-            mini.innerHTML += `<br>${miniColdNumbText}`;
-        }
-        const miniBurnText = typeof ally.getBurnStatusText === 'function' ? ally.getBurnStatusText() : '';
-        if (miniBurnText) {
-            mini.innerHTML += `<br>${miniBurnText}`;
-        }
-        const miniInfectionText = typeof ally.getInfectionStatusText === 'function' ? ally.getInfectionStatusText() : '';
-        if (miniInfectionText) {
-            mini.innerHTML += `<br>${miniInfectionText}`;
-        }
-        const miniProtectionText = typeof ally.getProtectionStatusText === 'function' ? ally.getProtectionStatusText() : '';
-        if (miniProtectionText) {
-            mini.innerHTML += `<br>${miniProtectionText}`;
-        }
         if (!ally.isAlive()) {
             mini.style.opacity = '0.5';
         }

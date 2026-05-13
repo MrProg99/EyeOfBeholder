@@ -1157,7 +1157,24 @@ button:hover {
 
 #combat-modal-log {
     font-size: 13px;
-    line-height: 1.2;
+    line-height: 1.35;
+    text-align: left;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+#combat-modal-log > div {
+    margin-bottom: 2px;
+}
+
+#combat-modal-log > div:last-child {
+    margin-bottom: 0;
+}
+
+#combat-modal-center-actions {
+    align-content: start;
+    align-items: start;
+    grid-auto-rows: max-content;
 }
 
 #combat-modal-center-actions button {
@@ -1252,6 +1269,10 @@ button:hover {
     flex: 0 1 clamp(260px, 30vw, 420px);
     border: 1px solid #555;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
 }
 
 #combat-modal-characters .character-mini.active-turn {
@@ -1265,6 +1286,58 @@ button:hover {
     background-color: #29342b;
 }
 
+.combat-character-summary-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.combat-character-identity {
+    flex: 0 1 42%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.combat-character-name {
+    display: block;
+    width: 100%;
+    font-size: 13px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.combat-character-role {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #d0d0d0;
+    line-height: 1.2;
+}
+
+.combat-character-bars {
+    flex: 1 1 58%;
+    min-width: 0;
+}
+
+.combat-character-bars .resource-bars.compact {
+    margin: 0;
+}
+
+.combat-character-statuses {
+    margin-top: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 11px;
+    line-height: 1.25;
+    color: #dddddd;
+}
+
 .combat-portrait-wrap {
     position: relative;
     display: block;
@@ -1274,7 +1347,7 @@ button:hover {
 .combat-character-portrait {
     width: 100%;
     height: auto;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 20 / 9;
     object-fit: cover;
     object-position: center 30%;
     border-radius: 5px;
@@ -1376,7 +1449,7 @@ button:hover {
 .combat-monster-portrait {
     width: 100%;
     height: auto;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 20 / 9;
     object-fit: cover;
     object-position: center 30%;
     border-radius: 5px;
@@ -1480,7 +1553,7 @@ button:hover {
     }
 
     .combat-monster-portrait {
-        aspect-ratio: 16 / 10;
+        aspect-ratio: 2 / 1;
     }
 
     #combat-modal-characters .character-mini {
@@ -1492,7 +1565,23 @@ button:hover {
     }
 
     .combat-character-portrait {
-        aspect-ratio: 16 / 10;
+        aspect-ratio: 2 / 1;
+    }
+
+    .combat-character-summary-row {
+        gap: 6px;
+    }
+
+    .combat-character-name {
+        font-size: 12px;
+    }
+
+    .combat-character-role {
+        font-size: 10px;
+    }
+
+    .combat-character-statuses {
+        font-size: 10px;
     }
 
     #combat-modal-center {
