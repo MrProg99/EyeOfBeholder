@@ -177,7 +177,7 @@ const CLASS_SKILL_TREE = {
         { id: 'mage_attaque_baton', action: 'Attaque au baton', unlockLevel: 1, maxRank: 3, powerPerRank: 0.08 },
         { id: 'mage_missile', action: 'Magic Missile', unlockLevel: 1, maxRank: 4, powerPerRank: 0.12 },
         { id: 'mage_boule_feu', action: 'Boule de feu', unlockLevel: 1, maxRank: 4, powerPerRank: 0.12 },
-        { id: 'mage_soin', action: 'Soin', unlockLevel: 3, maxRank: 4, powerPerRank: 0.1 },
+        { id: 'mage_lance_glace', action: 'Lance de glace', unlockLevel: 3, maxRank: 4, powerPerRank: 0.1 },
         { id: 'mage_pluie_feu', action: 'Pluie de feu', unlockLevel: 5, maxRank: 4, powerPerRank: 0.12 }
     ],
     Necromancer: [
@@ -1649,6 +1649,7 @@ class Character {
                 || action === 'Magic Missile'
                 || action === 'Backstab'
                 || action === 'Attaque au baton'
+                || action === 'Lance de glace'
                 || action === 'Attaque rapide'
                 || action === 'Coup de baton'
                 || action === 'Drain de vie'
@@ -1789,6 +1790,30 @@ class Character {
             return `${this.name} lance Boule de feu sur ${monster.name} pour ${damage} degats et applique Brulure (2 tours).`;
         }
 
+        if (action === 'Lance de glace') {
+            const manaCost = 12;
+            if (this.mana < manaCost) {
+                return `${this.name} n'a pas assez de mana pour Lance de glace.`;
+            }
+            this.mana -= manaCost;
+            const baseDamage = Math.max(1, currentAttack + 8);
+            const rawDamage = this.scaleSpellDamage(baseDamage, action);
+            const damage = monster.takeDamage(rawDamage, { damageType: 'ice' });
+            const freezeChance = 0.35;
+            let freezeText = '';
+            if (
+                typeof monster.applyStun === 'function'
+                && typeof monster.isAlive === 'function'
+                && monster.isAlive()
+                && Math.random() < freezeChance
+            ) {
+                monster.applyStun(1);
+                freezeText = ' La cible est gelee (etourdie 1 tour).';
+            }
+            playSpellCastSound();
+            return `${this.name} lance une Lance de glace sur ${monster.name} pour ${damage} degats.${freezeText}`;
+        }
+
         if (action === 'Attaque au baton') {
             const baseDamage = Math.max(1, currentAttack + 2);
             const rawDamage = this.scalePhysicalDamage(baseDamage, action);
@@ -1901,22 +1926,6 @@ class Character {
             }
             playSpellCastSound();
             return `${this.name} maudit ${monster.name}: ${damage} degats et -${weakenAmount} attaque pendant ${weakenTurns} tours.`;
-        }
-
-        if (action === 'Soin') {
-            if (this.mana < 10) {
-                return `${this.name} n'a pas assez de mana.`;
-            }
-            this.mana -= 10;
-            const heal = this.scaleMagicSpellPower(25, 1, action);
-            if (target && typeof target.health === 'number') {
-                target.health = Math.min(target.maxHealth, target.health + heal);
-                playSpellCastSound(0.72);
-                return `${this.name} soigne ${target.name} de ${heal} PV.`;
-            }
-            this.health = Math.min(this.maxHealth, this.health + heal);
-            playSpellCastSound(0.72);
-            return `${this.name} se soigne de ${heal} PV.`;
         }
 
         if (action === 'Protection') {

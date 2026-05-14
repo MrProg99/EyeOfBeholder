@@ -1233,6 +1233,7 @@ button:hover {
 #combat-modal-center-actions {
     align-content: start;
     align-items: start;
+    justify-items: start;
     grid-auto-rows: max-content;
 }
 
@@ -1243,6 +1244,47 @@ button:hover {
     border-radius: 5px;
     border: 1px solid #888;
     cursor: pointer;
+    transition: transform 0.12s ease, filter 0.12s ease, border-color 0.12s ease;
+}
+
+#combat-modal-center-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    filter: grayscale(0.6);
+}
+
+#combat-modal-center-actions .combat-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    min-height: 68px;
+}
+
+#combat-modal-center-actions .combat-action-btn.combat-action-with-icon {
+    min-height: 70px;
+    width: 70px;
+    height: 70px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    line-height: 0;
+}
+
+#combat-modal-center-actions .combat-action-btn.combat-action-with-icon:not(:disabled):hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+}
+
+#combat-modal-center-actions .combat-action-icon {
+    display: block;
+    width: 70px;
+    height: 70px;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+    pointer-events: none;
 }
 
 #combat-turn-order-list {
@@ -1407,7 +1449,7 @@ button:hover {
     width: 100%;
     height: auto;
     aspect-ratio: 20 / 9;
-    object-fit: cover;
+    object-fit: scale-down;
     object-position: center 30%;
     border-radius: 5px;
     border: 1px solid #666;
@@ -1516,7 +1558,7 @@ button:hover {
     width: 100%;
     height: auto;
     aspect-ratio: 20 / 9;
-    object-fit: cover;
+    object-fit: scale-down;
     object-position: center 30%;
     border-radius: 5px;
     border: 1px solid #666;

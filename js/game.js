@@ -445,7 +445,7 @@ function usesManaResource(character) {
 const ACTION_MANA_COSTS = Object.freeze({
     'Magic Missile': 10,
     'Boule de feu': 20,
-    Soin: 10,
+    'Lance de glace': 12,
     'Pluie de feu': 30,
     'Drain de vie': 14,
     Affaiblissement: 12,
@@ -453,6 +453,29 @@ const ACTION_MANA_COSTS = Object.freeze({
     Protection: 16,
     'Soin de groupe': 22,
     Renouveau: 26
+});
+const COMBAT_ACTION_ICON_PATHS = Object.freeze({
+    Attaquer: 'Images/Action_Attaquer.png',
+    'Coup d epee': 'Images/Action_Attaquer.png',
+    'Attaque rapide': 'Images/Action_Attaquer.png',
+    'Attaque au baton': 'Images/Action_Attaquer.png',
+    'Coup de baton': 'Images/Action_Attaquer.png',
+    Assomer: 'Images/Action_Assomer.png',
+    Backstab: 'Images/Action_Backstab.png',
+    Bloquer: 'Images/Action_Bloquer.png',
+    'Boule de feu': 'Images/Action_fireball.png',
+    'Lance de glace': 'Images/Action_lanceGlace.png',
+    'Magic Missile': 'Images/action_MagicMissile.png',
+    Affaiblissement: 'Images/Action_Affaiblissement.png',
+    'Drain de vie': 'Images/Action_Draindevie.png',
+    'Malediction funeste': 'Images/Action_Malediction.png',
+    'Pluie de feu': 'Images/Action_Pluiedefeu.png',
+    Protection: 'Images/Action_protection.png',
+    'Soin de groupe': 'Images/Action_soinGroupe.png',
+    'Invocation de squelette': 'Images/Action_Squelette.png',
+    'Invocation de totem': 'Images/Action_TotemVie.png',
+    'Invocation de totem de mort': 'Images/Action_TotemMort.png',
+    'Boire une potion': 'Images/Action_Potion.png'
 });
 
 function getActionManaCost(action) {
@@ -478,6 +501,54 @@ function hasEnoughManaForAction(character, action) {
     }
     const currentMana = Math.max(0, Math.floor(Number(character && character.mana) || 0));
     return currentMana >= manaCost;
+}
+
+function getCombatActionIconPath(action) {
+    if (typeof action !== 'string' || action.length === 0) {
+        return '';
+    }
+    return COMBAT_ACTION_ICON_PATHS[action] || '';
+}
+
+function buildCombatActionHint(action, manaCost = 0, disabledReason = '') {
+    const hintParts = [String(action || 'Action')];
+    if (manaCost > 0) {
+        hintParts.push(`Cout: ${manaCost} mana`);
+    }
+    if (disabledReason) {
+        hintParts.push(disabledReason);
+    }
+    return hintParts.join(' - ');
+}
+
+function setCombatActionButtonVisual(button, action, hint = '') {
+    if (!button) {
+        return;
+    }
+    const actionLabel = String(action || 'Action');
+    const buttonHint = typeof hint === 'string' && hint.length > 0 ? hint : actionLabel;
+    button.classList.add('combat-action-btn');
+    button.title = buttonHint;
+    button.setAttribute('aria-label', buttonHint);
+    button.textContent = '';
+
+    const iconPath = getCombatActionIconPath(actionLabel);
+    if (!iconPath) {
+        button.classList.remove('combat-action-with-icon');
+        button.textContent = actionLabel;
+        return;
+    }
+
+    const icon = document.createElement('img');
+    icon.className = 'combat-action-icon';
+    icon.src = iconPath;
+    icon.alt = actionLabel;
+    icon.addEventListener('error', () => {
+        button.classList.remove('combat-action-with-icon');
+        button.textContent = actionLabel;
+    }, { once: true });
+    button.appendChild(icon);
+    button.classList.add('combat-action-with-icon');
 }
 
 class SummonedAlly {
@@ -1124,6 +1195,19 @@ function restoreCharactersFromSave(savedCharacters, fallbackPartyClasses) {
         Object.assign(character, clonedCharacter);
         character.name = name;
         character.classType = classType;
+
+        if (character.classType === 'Mage') {
+            const skillRanks = character.skillRanks && typeof character.skillRanks === 'object'
+                ? character.skillRanks
+                : {};
+            const oldHealRank = Math.max(0, Math.floor(Number(skillRanks.mage_soin) || 0));
+            const currentIceRank = Math.max(0, Math.floor(Number(skillRanks.mage_lance_glace) || 0));
+            if (oldHealRank > 0) {
+                skillRanks.mage_lance_glace = Math.max(currentIceRank, oldHealRank);
+                delete skillRanks.mage_soin;
+            }
+            character.skillRanks = skillRanks;
+        }
 
         if (!character.equipment || typeof character.equipment !== 'object') {
             character.equipment = {
@@ -2326,34 +2410,23 @@ function updateCombatUI() {
         const abilities = activeChar.getAbilities();
         abilities.forEach(action => {
             const btn = document.createElement('button');
-            btn.textContent = action;
+            btn.type = 'button';
+            let disabledReason = '';
 
             if (action === 'Assomer' && typeof activeChar.canUseAssomer === 'function' && !activeChar.canUseAssomer()) {
-                btn.disabled = true;
-                btn.textContent = `Assomer (${activeChar.assomerCooldownTurns} tours)`;
-                centerActions.appendChild(btn);
-                return;
+                disabledReason = `Recharge: ${activeChar.assomerCooldownTurns} tours`;
             }
 
             if (action === 'Coup de mort' && typeof activeChar.canUseCoupDeMort === 'function' && !activeChar.canUseCoupDeMort()) {
-                btn.disabled = true;
-                btn.textContent = `Coup de mort (${activeChar.coupDeMortCooldownTurns} tours)`;
-                centerActions.appendChild(btn);
-                return;
+                disabledReason = `Recharge: ${activeChar.coupDeMortCooldownTurns} tours`;
             }
 
             if (action === 'Backstab' && typeof activeChar.canUseBackstab === 'function' && !activeChar.canUseBackstab()) {
-                btn.disabled = true;
-                btn.textContent = `Backstab (${activeChar.backstabCooldownTurns} tours)`;
-                centerActions.appendChild(btn);
-                return;
+                disabledReason = `Recharge: ${activeChar.backstabCooldownTurns} tours`;
             }
 
             if (action === 'Invocation de squelette' && typeof activeChar.canUseSkeletonSummon === 'function' && !activeChar.canUseSkeletonSummon()) {
-                btn.disabled = true;
-                btn.textContent = `Invocation de squelette (${activeChar.skeletonSummonCooldownTurns} tours)`;
-                centerActions.appendChild(btn);
-                return;
+                disabledReason = `Recharge: ${activeChar.skeletonSummonCooldownTurns} tours`;
             }
 
             if (
@@ -2367,26 +2440,26 @@ function updateCombatUI() {
                 if (maxPerCaster > 0) {
                     const activeTotems = getActiveSummonCountForCaster(activeChar, totemDefinition.id);
                     if (activeTotems >= maxPerCaster) {
-                        btn.disabled = true;
-                        btn.textContent = `${action} (actif)`;
-                        centerActions.appendChild(btn);
-                        return;
+                        disabledReason = 'Totem deja actif';
                     }
                 }
             }
 
             const actionManaCost = getActionManaCost(action);
-            if (actionManaCost > 0 && !hasEnoughManaForAction(activeChar, action)) {
+            if (!disabledReason && actionManaCost > 0 && !hasEnoughManaForAction(activeChar, action)) {
+                disabledReason = `Mana requis: ${actionManaCost}`;
+            }
+
+            const actionHint = buildCombatActionHint(action, actionManaCost, disabledReason);
+            setCombatActionButtonVisual(btn, action, actionHint);
+            if (disabledReason) {
                 btn.disabled = true;
-                btn.textContent = `${action} (Mana requis: ${actionManaCost})`;
                 centerActions.appendChild(btn);
                 return;
             }
 
-            // If action is heal, show heal target selection
-            if (action === 'Soin' && activeChar.classType === 'Mage') {
-                btn.addEventListener('click', () => showHealTargetSelection(activeChar));
-            } else if (action === 'Protection' && activeChar.classType === 'Druid') {
+            // Route non-attack actions to their dedicated handlers
+            if (action === 'Protection' && activeChar.classType === 'Druid') {
                 btn.addEventListener('click', () => showProtectionTargetSelection(activeChar));
             } else if (
                 (action === 'Invocation de totem' || action === 'Invocation de totem de mort')
@@ -2423,10 +2496,13 @@ function updateCombatUI() {
         const combatPotions = typeof getCombatPotionsForCharacter === 'function'
             ? getCombatPotionsForCharacter(activeChar)
             : [];
+        const potionActionLabel = 'Boire une potion';
         const potionButton = document.createElement('button');
-        potionButton.textContent = combatPotions.length > 0
-            ? 'Boire une potion'
-            : 'Boire une potion (0)';
+        potionButton.type = 'button';
+        const potionHint = combatPotions.length > 0
+            ? `${potionActionLabel} - ${combatPotions.length} disponible(s)`
+            : `${potionActionLabel} - aucune potion disponible`;
+        setCombatActionButtonVisual(potionButton, potionActionLabel, potionHint);
         if (combatPotions.length === 0) {
             potionButton.disabled = true;
         } else {
@@ -3030,11 +3106,22 @@ function castRainOfFire(activeChar) {
     const spellDamageScaler = typeof activeChar.scaleSpellDamage === 'function'
         ? activeChar.scaleSpellDamage.bind(activeChar)
         : (value) => value;
+    const burnDamagePerTurn = spellDamageScaler(4, 'Pluie de feu');
+    const burnTurns = 2;
     // Damage to each monster
     aliveMonsters.forEach(m => {
         const rawDamage = spellDamageScaler(Math.max(1, casterAttack + 6), 'Pluie de feu');
         const damage = m.takeDamage(rawDamage, { damageType: 'fire' });
-        logMessage(`${activeChar.name} lance Pluie de feu sur ${m.name} pour ${damage} degats.`);
+        let burnText = '';
+        if (
+            typeof m.applyBurn === 'function'
+            && typeof m.isAlive === 'function'
+            && m.isAlive()
+        ) {
+            m.applyBurn(burnDamagePerTurn, burnTurns);
+            burnText = ` et applique Brulure (${burnTurns} tours)`;
+        }
+        logMessage(`${activeChar.name} lance Pluie de feu sur ${m.name} pour ${damage} degats${burnText}.`);
     });
     finishCharacterAction(activeChar, true);
 }
@@ -3182,7 +3269,6 @@ function handleCombatAction(action) {
     const aliveMonsters = currentMonsters.filter(m => m.isAlive());
     const nonTargetedActions = new Set([
         'Bloquer',
-        'Soin',
         'Invocation de squelette',
         'Invocation de totem',
         'Invocation de totem de mort',
