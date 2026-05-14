@@ -140,6 +140,9 @@ const INITIATIVE_BASE = {
         'Reine araignee': 12
     }
 };
+const NECRO_SOUL_THEFT_PASSIVE_ID = 'necro_obscur';
+const NECRO_SOUL_THEFT_HEALTH_GAIN = 5;
+const NECRO_SOUL_THEFT_MANA_GAIN = 10;
 const BOSS_RELIC_STAT_FIELDS = {
     strength: 'strengthBonus',
     intelligence: 'intelligenceBonus',
@@ -748,6 +751,8 @@ function cleanupDefeatedCombatParticipants() {
         return;
     }
 
+    const cursorBeforeCleanup = combatTurnCursor;
+    const activeEntityBeforeCleanup = combatTurnOrder[cursorBeforeCleanup] || null;
     combatTurnOrder = combatTurnOrder.filter((entity) => (
         entity
         && typeof entity.isAlive === 'function'
@@ -757,6 +762,14 @@ function cleanupDefeatedCombatParticipants() {
     if (combatTurnOrder.length === 0) {
         combatTurnCursor = 0;
         return;
+    }
+
+    if (activeEntityBeforeCleanup && typeof activeEntityBeforeCleanup.isAlive === 'function' && activeEntityBeforeCleanup.isAlive()) {
+        const preservedIndex = combatTurnOrder.indexOf(activeEntityBeforeCleanup);
+        if (preservedIndex >= 0) {
+            combatTurnCursor = preservedIndex;
+            return;
+        }
     }
 
     combatTurnCursor = ((combatTurnCursor % combatTurnOrder.length) + combatTurnOrder.length) % combatTurnOrder.length;
@@ -1587,6 +1600,47 @@ function hasAliveMonsters() {
     return currentMonsters.some((monster) => monster.isAlive());
 }
 
+function handleMonsterDefeatPassiveEffects(defeatedMonster) {
+    if (!defeatedMonster || !Array.isArray(characters) || characters.length === 0) {
+        return;
+    }
+
+    const defeatedMonsterName = typeof defeatedMonster.name === 'string' && defeatedMonster.name.length > 0
+        ? defeatedMonster.name
+        : 'un monstre';
+
+    characters.forEach((character) => {
+        if (
+            !character
+            || character.classType !== 'Necromancer'
+            || typeof character.isAlive !== 'function'
+            || !character.isAlive()
+            || typeof character.getPassiveRank !== 'function'
+            || character.getPassiveRank(NECRO_SOUL_THEFT_PASSIVE_ID) <= 0
+        ) {
+            return;
+        }
+
+        const maxHealth = Math.max(1, Math.floor(Number(character.maxHealth) || 1));
+        const maxMana = Math.max(0, Math.floor(Number(character.maxMana) || 0));
+        const beforeHealth = Math.max(0, Math.floor(Number(character.health) || 0));
+        const beforeMana = Math.max(0, Math.floor(Number(character.mana) || 0));
+
+        character.health = Math.min(maxHealth, beforeHealth + NECRO_SOUL_THEFT_HEALTH_GAIN);
+        character.mana = Math.min(maxMana, beforeMana + NECRO_SOUL_THEFT_MANA_GAIN);
+
+        const restoredHealth = Math.max(0, character.health - beforeHealth);
+        const restoredMana = Math.max(0, character.mana - beforeMana);
+        if (restoredHealth <= 0 && restoredMana <= 0) {
+            return;
+        }
+
+        logMessage(
+            `${character.name} vole l ame de ${defeatedMonsterName} et recupere ${restoredHealth} PV et ${restoredMana} mana.`
+        );
+    });
+}
+
 function resolveMonsterDeathSplits() {
     if (!Array.isArray(currentMonsters) || currentMonsters.length === 0) {
         return false;
@@ -1767,6 +1821,7 @@ window.queueDamageFlash = queueDamageFlash;
 window.summonSkeletonForCharacter = summonSkeletonForCharacter;
 window.summonTotemForCharacter = summonTotemForCharacter;
 window.summonDeathTotemForCharacter = summonDeathTotemForCharacter;
+window.handleMonsterDefeatPassiveEffects = handleMonsterDefeatPassiveEffects;
 window.playSoundEffect = function playSoundEffect(effectKey, options = {}) {
     const baseAudio = soundEffectBank[effectKey];
     if (!baseAudio) {
@@ -2797,6 +2852,9 @@ function finishCharacterAction(activeChar, shouldCheckVictory) {
     if (activeChar && typeof activeChar.clearCoupDeMortFollowUp === 'function') {
         activeChar.clearCoupDeMortFollowUp();
     }
+    if (activeChar && typeof activeChar.clearAssassinationFollowUp === 'function') {
+        activeChar.clearAssassinationFollowUp();
+    }
     applyCharacterTurnEffects(activeChar);
     resolveMonsterDeathSplits();
     updateCharacterUI();
@@ -3087,15 +3145,28 @@ function tryHandleAssassinationFollowUp(activeChar) {
 
 function handleCharacterActionResult(activeChar, actionResult, shouldCheckVictory = true) {
     logMessage(actionResult);
-    if (tryHandleCoupDeMortFollowUp(activeChar)) {
+
+    const hasCoupDeMortFollowUp = Boolean(
+        activeChar
+        && typeof activeChar.hasPendingCoupDeMortFollowUp === 'function'
+        && activeChar.hasPendingCoupDeMortFollowUp()
+    );
+    const hasAssassinationFollowUp = !hasCoupDeMortFollowUp && Boolean(
+        activeChar
+        && typeof activeChar.hasPendingAssassinationFollowUp === 'function'
+        && activeChar.hasPendingAssassinationFollowUp()
+    );
+
+    if (hasCoupDeMortFollowUp || hasAssassinationFollowUp) {
         updateCharacterUI();
         updateCombatUI();
-        return;
-    }
-    if (tryHandleAssassinationFollowUp(activeChar)) {
-        updateCharacterUI();
-        updateCombatUI();
-        return;
+
+        if (hasCoupDeMortFollowUp && tryHandleCoupDeMortFollowUp(activeChar)) {
+            return;
+        }
+        if (hasAssassinationFollowUp && tryHandleAssassinationFollowUp(activeChar)) {
+            return;
+        }
     }
     finishCharacterAction(activeChar, shouldCheckVictory);
 }

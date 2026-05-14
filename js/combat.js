@@ -461,12 +461,14 @@ class Monster {
 
     takeDamage(damage, options = {}) {
         const wasAliveBeforeHit = this.health > 0;
-        const damageType = normalizeDamageType(options && options.damageType ? options.damageType : 'physical');
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        const damageType = normalizeDamageType(normalizedOptions.damageType || 'physical');
         const resistancePercent = this.getDamageResistance(damageType);
         const finalDamage = resolveDamageWithType(damage, {
             armorValue: this.defense,
             damageType,
-            resistancePercent
+            resistancePercent,
+            ignoreArmor: Boolean(normalizedOptions.ignoreArmor)
         });
         this.health -= finalDamage;
         if (finalDamage > 0 && typeof window.queueDamageFlash === 'function') {
@@ -481,6 +483,9 @@ class Monster {
                         window.playSoundEffect('monsterDeath', { volume: 1.0 });
                     }
                 }, 180);
+            }
+            if (wasAliveBeforeHit && finalDamage > 0 && typeof window.handleMonsterDefeatPassiveEffects === 'function') {
+                window.handleMonsterDefeatPassiveEffects(this);
             }
         }
         return finalDamage;

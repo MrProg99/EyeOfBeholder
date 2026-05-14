@@ -215,7 +215,7 @@ const CLASS_PASSIVE_TREE = {
         { id: 'mage_voile', name: 'Voile mystique', unlockLevel: 6, maxRank: 4, effects: { magicResistanceFlat: 5 } }
     ],
     Necromancer: [
-        { id: 'necro_obscur', name: 'Savoir obscur', unlockLevel: 2, maxRank: 4, effects: { spellDamagePercent: 0.06 } },
+        { id: 'necro_obscur', name: 'Vol d ame', unlockLevel: 2, maxRank: 1, effects: { soulTheftEnabled: 1, soulTheftHealthOnKill: 5, soulTheftManaOnKill: 10 } },
         { id: 'necro_siphon', name: 'Siphon d ame', unlockLevel: 4, maxRank: 4, effects: { manaRegenFlat: 2 } },
         { id: 'necro_os', name: 'Carapace d os', unlockLevel: 6, maxRank: 4, effects: { physicalResistanceFlat: 4 } }
     ],
@@ -329,6 +329,11 @@ function buildPassiveEffectDescription(passiveDefinition) {
     }
     if (effects.assassinationEnabled) {
         parts.push('Kill critique: enchainement gratuit sur une autre cible');
+    }
+    if (effects.soulTheftEnabled || effects.soulTheftHealthOnKill || effects.soulTheftManaOnKill) {
+        const healthGain = Math.max(0, Math.floor(Number(effects.soulTheftHealthOnKill) || 0));
+        const manaGain = Math.max(0, Math.floor(Number(effects.soulTheftManaOnKill) || 0));
+        parts.push(`A chaque mort de monstre: +${healthGain} PV et +${manaGain} mana`);
     }
     return parts.join(', ');
 }
@@ -1852,7 +1857,7 @@ class Character {
             this.mana -= manaCost;
             const baseDamage = Math.max(1, currentAttack + 6);
             const rawDamage = this.scaleSpellDamage(baseDamage, action);
-            const damage = monster.takeDamage(rawDamage, { damageType: 'magic' });
+            const damage = monster.takeDamage(rawDamage, { damageType: 'magic', ignoreArmor: true });
             const expectedHeal = Math.max(1, Math.round(damage * 0.6));
             const beforeHealth = this.health;
             this.health = Math.min(this.maxHealth, this.health + expectedHeal);
@@ -2291,7 +2296,7 @@ class Character {
         const resolver = (typeof window !== 'undefined' && typeof window.resolveDamageWithType === 'function')
             ? window.resolveDamageWithType
             : (rawDamage, context = {}) => {
-                const reducedByArmor = armorFormula(rawDamage, context.armorValue || 0);
+                const reducedByArmor = context.ignoreArmor ? Math.max(1, Math.floor(rawDamage || 0)) : armorFormula(rawDamage, context.armorValue || 0);
                 const normalizedResistance = clampResistancePercent(context.resistancePercent || 0);
                 return Math.max(1, Math.round(reducedByArmor * (1 - (normalizedResistance / 100))));
             };
@@ -2299,6 +2304,7 @@ class Character {
             armorValue: this.defense,
             damageType,
             resistancePercent,
+            ignoreArmor: Boolean(normalizedOptions.ignoreArmor),
             minDamage: 1
         });
         if (this.isBlocking && !normalizedOptions.ignoreBlocking) {
