@@ -460,6 +460,7 @@ class Monster {
     }
 
     takeDamage(damage, options = {}) {
+        const wasAliveBeforeHit = this.health > 0;
         const damageType = normalizeDamageType(options && options.damageType ? options.damageType : 'physical');
         const resistancePercent = this.getDamageResistance(damageType);
         const finalDamage = resolveDamageWithType(damage, {
@@ -473,6 +474,14 @@ class Monster {
         }
         if (this.health <= 0) {
             this.health = 0;
+            if (wasAliveBeforeHit && finalDamage > 0 && typeof window.playSoundEffect === 'function') {
+                // Let the sword impact start first so the death sound remains audible.
+                window.setTimeout(() => {
+                    if (typeof window.playSoundEffect === 'function') {
+                        window.playSoundEffect('monsterDeath', { volume: 1.0 });
+                    }
+                }, 180);
+            }
         }
         return finalDamage;
     }

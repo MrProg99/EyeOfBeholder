@@ -68,6 +68,8 @@ const POTION_DROP_CHANCE = 0.15;
 const SHAMAN_ENCOUNTER_CHANCE = 0.3;
 const KOBOLD_WARBAND_ENCOUNTER_CHANCE = 0.24;
 const MAX_MONSTERS_IN_COMBAT = 8;
+const INITIAL_REST_RATIONS = 3;
+let availableRestRations = INITIAL_REST_RATIONS;
 const MONSTER_TURN_VISUAL_DELAY_MS = 1500;
 const PERCEPTION_EVENT_BASE_CHANCE = 0.05;
 const PERCEPTION_EVENT_PER_POINT = 0.0125;
@@ -257,12 +259,14 @@ const SOUND_EFFECTS = {
     swordHit4: 'Sound/sword_hit4.wav',
     swordHit5: 'Sound/sword_hit5.wav',
     swordHit6: 'Sound/sword_hit6.wav',
+    swordHit7: 'Sound/sword_hit7.mp3',
     spell1: 'Sound/spell_1.wav',
     spell2: 'Sound/spell_2.wav',
     spell3: 'Sound/spell_3.wav',
     spell4: 'Sound/spell_4.wav',
     spell5: 'Sound/spell_5.wav',
-    spell6: 'Sound/spell_6.wav'
+    spell6: 'Sound/spell_6.wav',
+    monsterDeath: 'Sound/monster-death.mp3'
 };
 const SWORD_HIT_EFFECT_KEYS = [
     'swordHit1',
@@ -270,7 +274,8 @@ const SWORD_HIT_EFFECT_KEYS = [
     'swordHit3',
     'swordHit4',
     'swordHit5',
-    'swordHit6'
+    'swordHit6',
+    'swordHit7'
 ];
 const SPELL_CAST_EFFECT_KEYS = [
     'spell1',
@@ -928,6 +933,7 @@ function initGame(selection = DEFAULT_PARTY_CLASSES) {
     isGameOver = false;
     stopCombatMusic();
     discoveredChestFloors.clear();
+    availableRestRations = INITIAL_REST_RATIONS;
     summonedAllyEntityIdCounter = 1;
     const gameOverModal = document.getElementById('game-over-modal');
     if (gameOverModal) {
@@ -1469,13 +1475,21 @@ window.playRandomSpellCast = function playRandomSpellCast(options = {}) {
     window.playSoundEffect(effectKey, options);
 };
 
-function updateRestButton(room) {
+function getRestButtonLabel() {
+    const rationWord = availableRestRations > 1 ? 'rations' : 'ration';
+    return `Se Reposer (${availableRestRations} ${rationWord})`;
+}
+
+function updateRestButton() {
     const restButton = document.getElementById('rest');
-    if (room.type === 'rest') {
-        restButton.style.display = 'block';
-    } else {
-        restButton.style.display = 'none';
+    if (!restButton) {
+        return;
     }
+    restButton.style.display = 'block';
+    restButton.textContent = getRestButtonLabel();
+    restButton.title = availableRestRations > 0
+        ? 'Utiliser 1 ration pour restaurer le groupe.'
+        : 'Aucune ration disponible.';
 }
 
 function updateStairsButton(room) {
@@ -3237,7 +3251,16 @@ function handleVictory() {
     logMessage(`Tous les monstres sont vaincus!`);
     // Award XP equal to sum of maxHealth of monsters
     const xp = currentMonsters.reduce((s, m) => s + (m.maxHealth || 0), 0);
-    getAliveCharacters().forEach(char => char.gainExperience(xp));
+    const aliveCharacters = getAliveCharacters();
+    if (xp > 0 && aliveCharacters.length > 0) {
+        logMessage(`Experience gagnee: ${xp} XP par personnage vivant.`);
+    }
+    aliveCharacters.forEach((char) => {
+        char.gainExperience(xp);
+        if (xp > 0) {
+            logMessage(`${char.name} gagne ${xp} XP.`);
+        }
+    });
     grantLootFromDefeatedMonsters(defeatedMonsters);
     dungeon.getCurrentRoom().type = 'empty';
     updateCharacterUI();
@@ -3787,44 +3810,58 @@ document.getElementById('rest').addEventListener('click', () => {
     if (isGameOver) {
         return;
     }
+    if (inCombat) {
+        return;
+    }
     if (chestEventActive) {
         return;
     }
-    const room = dungeon.getCurrentRoom();
-    if (room.type === 'rest') {
-        characters.forEach(char => {
-            char.health = char.maxHealth;
-            if (usesManaResource(char)) {
-                char.mana = char.maxMana;
-            }
-            if (typeof char.hasAttackWeakness === 'function' && char.hasAttackWeakness()) {
-                char.attackWeakenAmount = 0;
-                char.attackWeakenTurns = 0;
-            }
-            if (typeof char.isColdNumb === 'function' && char.isColdNumb()) {
-                char.coldNumbTurns = 0;
-                char.coldNumbDamageMultiplier = 1;
-                char.coldNumbAppliedThisTurn = false;
-            }
-            if (typeof char.isBurning === 'function' && char.isBurning()) {
-                char.burnDamage = 0;
-                char.burnTurns = 0;
-                char.burnAppliedThisTurn = false;
-            }
-            if (typeof char.isInfected === 'function' && char.isInfected()) {
-                char.infectionDamage = 0;
-                char.infectionTurns = 0;
-                char.infectionAppliedThisTurn = false;
-            }
-            if (typeof char.hasProtectionShield === 'function' && char.hasProtectionShield()) {
-                char.protectionShieldValue = 0;
-                char.protectionShieldTurns = 0;
-                char.protectionShieldAppliedThisTurn = false;
-            }
-        });
-        updateCharacterUI();
-        logMessage('Vous vous reposez et restaurez votre sante, votre mana et retirez les affaiblissements, brulures, infections et protections temporaires.');
+    if (availableRestRations <= 0) {
+        logMessage('Vous n avez plus de ration pour vous reposer.');
+        updateRestButton();
+        return;
     }
+
+    const confirmUseRation = window.confirm(`Utiliser 1 ration pour vous reposer ?\nRations restantes: ${availableRestRations}`);
+    if (!confirmUseRation) {
+        return;
+    }
+
+    availableRestRations = Math.max(0, availableRestRations - 1);
+    characters.forEach(char => {
+        char.health = char.maxHealth;
+        if (usesManaResource(char)) {
+            char.mana = char.maxMana;
+        }
+        if (typeof char.hasAttackWeakness === 'function' && char.hasAttackWeakness()) {
+            char.attackWeakenAmount = 0;
+            char.attackWeakenTurns = 0;
+        }
+        if (typeof char.isColdNumb === 'function' && char.isColdNumb()) {
+            char.coldNumbTurns = 0;
+            char.coldNumbDamageMultiplier = 1;
+            char.coldNumbAppliedThisTurn = false;
+        }
+        if (typeof char.isBurning === 'function' && char.isBurning()) {
+            char.burnDamage = 0;
+            char.burnTurns = 0;
+            char.burnAppliedThisTurn = false;
+        }
+        if (typeof char.isInfected === 'function' && char.isInfected()) {
+            char.infectionDamage = 0;
+            char.infectionTurns = 0;
+            char.infectionAppliedThisTurn = false;
+        }
+        if (typeof char.hasProtectionShield === 'function' && char.hasProtectionShield()) {
+            char.protectionShieldValue = 0;
+            char.protectionShieldTurns = 0;
+            char.protectionShieldAppliedThisTurn = false;
+        }
+    });
+    updateCharacterUI();
+    updateRestButton();
+    const rationWord = availableRestRations > 1 ? 'rations' : 'ration';
+    logMessage(`Vous vous reposez et restaurez votre sante, votre mana et retirez les affaiblissements, brulures, infections et protections temporaires. (${availableRestRations} ${rationWord} restante${availableRestRations > 1 ? 's' : ''})`);
 });
 
 // Debug code removed
