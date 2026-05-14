@@ -69,6 +69,8 @@ const SHAMAN_ENCOUNTER_CHANCE = 0.3;
 const KOBOLD_WARBAND_ENCOUNTER_CHANCE = 0.24;
 const MAX_MONSTERS_IN_COMBAT = 8;
 const INITIAL_REST_RATIONS = 3;
+const SAVE_STORAGE_KEY = 'eye_of_beholder_save_v1';
+const SAVE_SCHEMA_VERSION = 1;
 let availableRestRations = INITIAL_REST_RATIONS;
 const MONSTER_TURN_VISUAL_DELAY_MS = 1500;
 const PERCEPTION_EVENT_BASE_CHANCE = 0.05;
@@ -918,6 +920,309 @@ function sanitizePartyClassSelection(selection) {
     return [...DEFAULT_PARTY_CLASSES];
 }
 
+function cloneSerializableSaveData(value) {
+    try {
+        return JSON.parse(JSON.stringify(value));
+    } catch (error) {
+        return null;
+    }
+}
+
+function getSaveStorage() {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+    try {
+        return window.localStorage || null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function canPersistGameProgress() {
+    const hasCompleteParty = Array.isArray(characters) && characters.length === PARTY_SIZE;
+    return hasGameStarted && hasCompleteParty && !isGameOver && !inCombat && !chestEventActive;
+}
+
+function buildGameSaveState() {
+    const dungeonFloors = cloneSerializableSaveData(dungeon.floors);
+    const savedCharacters = cloneSerializableSaveData(characters);
+    const savedPartySelection = cloneSerializableSaveData(selectedPartyClasses);
+    const inventorySource = (typeof partyInventory !== 'undefined' && Array.isArray(partyInventory))
+        ? partyInventory
+        : [];
+    const savedInventory = cloneSerializableSaveData(inventorySource);
+
+    if (!Array.isArray(dungeonFloors) || !Array.isArray(savedCharacters) || savedCharacters.length !== PARTY_SIZE) {
+        return null;
+    }
+
+    const currentFloor = Math.max(0, Math.floor(Number(dungeon.currentFloor) || 0));
+    const currentRoomX = Math.max(0, Math.floor(Number(dungeon.currentRoom && dungeon.currentRoom.x) || 0));
+    const currentRoomY = Math.max(0, Math.floor(Number(dungeon.currentRoom && dungeon.currentRoom.y) || 0));
+
+    return {
+        schemaVersion: SAVE_SCHEMA_VERSION,
+        savedAt: Date.now(),
+        selectedPartyClasses: Array.isArray(savedPartySelection) ? savedPartySelection : [...DEFAULT_PARTY_CLASSES],
+        availableRestRations: Math.max(0, Math.floor(Number(availableRestRations) || 0)),
+        discoveredChestFloors: Array.from(discoveredChestFloors),
+        summonedAllyEntityIdCounter: Math.max(1, Math.floor(Number(summonedAllyEntityIdCounter) || 1)),
+        dungeon: {
+            floors: dungeonFloors,
+            currentFloor,
+            currentRoom: { x: currentRoomX, y: currentRoomY }
+        },
+        characters: savedCharacters,
+        partyInventory: Array.isArray(savedInventory) ? savedInventory : []
+    };
+}
+
+function saveGameProgressIfPossible(reason = 'autosave') {
+    if (!canPersistGameProgress()) {
+        return false;
+    }
+
+    const storage = getSaveStorage();
+    if (!storage) {
+        return false;
+    }
+
+    const state = buildGameSaveState();
+    if (!state) {
+        return false;
+    }
+
+    try {
+        storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(state));
+        return true;
+    } catch (error) {
+        console.warn('Sauvegarde impossible:', reason, error);
+        return false;
+    }
+}
+
+function clearSavedGameProgress() {
+    const storage = getSaveStorage();
+    if (!storage) {
+        return;
+    }
+    try {
+        storage.removeItem(SAVE_STORAGE_KEY);
+    } catch (error) {
+        console.warn('Suppression de sauvegarde impossible:', error);
+    }
+}
+
+function readSavedGameState() {
+    const storage = getSaveStorage();
+    if (!storage) {
+        return null;
+    }
+
+    let rawSave = null;
+    try {
+        rawSave = storage.getItem(SAVE_STORAGE_KEY);
+    } catch (error) {
+        return null;
+    }
+    if (!rawSave) {
+        return null;
+    }
+
+    let parsedSave = null;
+    try {
+        parsedSave = JSON.parse(rawSave);
+    } catch (error) {
+        clearSavedGameProgress();
+        return null;
+    }
+
+    if (!parsedSave || typeof parsedSave !== 'object') {
+        clearSavedGameProgress();
+        return null;
+    }
+    if (parsedSave.schemaVersion !== SAVE_SCHEMA_VERSION) {
+        return null;
+    }
+    if (!parsedSave.dungeon || !Array.isArray(parsedSave.characters) || parsedSave.characters.length !== PARTY_SIZE) {
+        clearSavedGameProgress();
+        return null;
+    }
+    if (parsedSave.inCombat === true) {
+        return null;
+    }
+
+    return parsedSave;
+}
+
+function hasSavedGameProgress() {
+    return Boolean(readSavedGameState());
+}
+
+function restorePartyInventoryFromSave(savedInventory) {
+    if (typeof partyInventory === 'undefined' || !Array.isArray(partyInventory)) {
+        return;
+    }
+    partyInventory.length = 0;
+    if (!Array.isArray(savedInventory)) {
+        return;
+    }
+    savedInventory.forEach((stack) => {
+        const clonedStack = cloneSerializableSaveData(stack);
+        if (!clonedStack || typeof clonedStack !== 'object') {
+            return;
+        }
+        partyInventory.push(clonedStack);
+    });
+}
+
+function restoreCharactersFromSave(savedCharacters, fallbackPartyClasses) {
+    if (!Array.isArray(savedCharacters) || savedCharacters.length !== PARTY_SIZE) {
+        return false;
+    }
+
+    characters.length = 0;
+    const fallbackClasses = Array.isArray(fallbackPartyClasses) ? fallbackPartyClasses : DEFAULT_PARTY_CLASSES;
+
+    for (let i = 0; i < savedCharacters.length; i += 1) {
+        const savedCharacter = savedCharacters[i];
+        if (!savedCharacter || typeof savedCharacter !== 'object') {
+            return false;
+        }
+
+        const savedClassType = typeof savedCharacter.classType === 'string' ? savedCharacter.classType : '';
+        const classType = AVAILABLE_PARTY_CLASSES.some((entry) => entry.key === savedClassType)
+            ? savedClassType
+            : (fallbackClasses[i] || DEFAULT_PARTY_CLASSES[i % DEFAULT_PARTY_CLASSES.length]);
+        const fallbackName = `Hero${i + 1}`;
+        const name = typeof savedCharacter.name === 'string' && savedCharacter.name.trim()
+            ? savedCharacter.name.trim().slice(0, 24)
+            : fallbackName;
+        const character = createCharacter(name, classType);
+        if (!character) {
+            return false;
+        }
+
+        const clonedCharacter = cloneSerializableSaveData(savedCharacter);
+        if (!clonedCharacter || typeof clonedCharacter !== 'object') {
+            return false;
+        }
+        Object.assign(character, clonedCharacter);
+        character.name = name;
+        character.classType = classType;
+
+        if (!character.equipment || typeof character.equipment !== 'object') {
+            character.equipment = {
+                weapon: null,
+                offhand: null,
+                ring: null,
+                armor: null,
+                boots: null
+            };
+        } else {
+            const equipmentDefaults = {
+                weapon: null,
+                offhand: null,
+                ring: null,
+                armor: null,
+                boots: null
+            };
+            character.equipment = { ...equipmentDefaults, ...character.equipment };
+        }
+    }
+
+    return true;
+}
+
+function loadSavedGameProgress() {
+    const savedGame = readSavedGameState();
+    if (!savedGame) {
+        return false;
+    }
+
+    const savedPartySelection = sanitizePartyClassSelection(savedGame.selectedPartyClasses);
+    selectedPartyClasses = [...savedPartySelection];
+
+    if (!restoreCharactersFromSave(savedGame.characters, savedPartySelection)) {
+        clearSavedGameProgress();
+        return false;
+    }
+    restorePartyInventoryFromSave(savedGame.partyInventory);
+
+    const savedDungeon = savedGame.dungeon || {};
+    const savedFloors = cloneSerializableSaveData(savedDungeon.floors);
+    if (!Array.isArray(savedFloors) || savedFloors.length === 0) {
+        clearSavedGameProgress();
+        return false;
+    }
+
+    dungeon.floors = savedFloors;
+    const maxFloorIndex = Math.max(0, dungeon.floors.length - 1);
+    dungeon.currentFloor = Math.max(0, Math.min(maxFloorIndex, Math.floor(Number(savedDungeon.currentFloor) || 0)));
+
+    const savedRoom = savedDungeon.currentRoom && typeof savedDungeon.currentRoom === 'object'
+        ? savedDungeon.currentRoom
+        : { x: 0, y: 0 };
+    const roomX = Math.max(0, Math.min(3, Math.floor(Number(savedRoom.x) || 0)));
+    const roomY = Math.max(0, Math.min(2, Math.floor(Number(savedRoom.y) || 0)));
+    dungeon.currentRoom = { x: roomX, y: roomY };
+
+    availableRestRations = Math.max(0, Math.floor(Number(savedGame.availableRestRations) || 0));
+    discoveredChestFloors.clear();
+    if (Array.isArray(savedGame.discoveredChestFloors)) {
+        savedGame.discoveredChestFloors.forEach((floorIndex) => {
+            const normalized = Math.floor(Number(floorIndex) || 0);
+            if (normalized >= 0) {
+                discoveredChestFloors.add(normalized);
+            }
+        });
+    }
+
+    summonedAllyEntityIdCounter = Math.max(1, Math.floor(Number(savedGame.summonedAllyEntityIdCounter) || 1));
+
+    isGameOver = false;
+    inCombat = false;
+    chestEventActive = false;
+    currentMonsters = [];
+    summonedAllies = [];
+    combatTurnOrder = [];
+    combatTurnCursor = 0;
+    clearDamageFlashQueue();
+    clearMonsterTurnTimeout();
+    stopCombatMusic();
+    hasGameStarted = true;
+
+    const gameOverModal = document.getElementById('game-over-modal');
+    if (gameOverModal) {
+        gameOverModal.style.display = 'none';
+    }
+    const combatModal = document.getElementById('combat-modal');
+    if (combatModal) {
+        combatModal.style.display = 'none';
+    }
+    const chestModal = document.getElementById('chest-modal');
+    if (chestModal) {
+        chestModal.style.display = 'none';
+    }
+    const levelUpModal = document.getElementById('level-up-modal');
+    if (levelUpModal) {
+        levelUpModal.style.display = 'none';
+    }
+    const inventoryModal = document.getElementById('inventory-modal');
+    if (inventoryModal) {
+        inventoryModal.style.display = 'none';
+    }
+
+    updateCharacterUI();
+    updateUI();
+    render();
+    logMessage('Sauvegarde chargee (hors combat).');
+    checkLevelUps();
+    saveGameProgressIfPossible('load-resync');
+    return true;
+}
+
 function createKoboldWarbandEncounter() {
     const chief = createMonster('kobold_chief');
     const firstKobold = createMonster('kobold');
@@ -929,9 +1234,26 @@ function initGame(selection = DEFAULT_PARTY_CLASSES) {
     const partySelection = sanitizePartyClassSelection(selection);
     selectedPartyClasses = [...partySelection];
     characters.length = 0;
+    currentMonsters = [];
     summonedAllies = [];
+    inCombat = false;
+    chestEventActive = false;
     isGameOver = false;
+    combatTurnOrder = [];
+    combatTurnCursor = 0;
+    clearDamageFlashQueue();
+    clearMonsterTurnTimeout();
     stopCombatMusic();
+
+    if (Array.isArray(dungeon.floors)) {
+        dungeon.floors = [];
+    }
+    dungeon.currentFloor = 0;
+    dungeon.currentRoom = { x: 0, y: 0 };
+    if (typeof dungeon.generateTower === 'function') {
+        dungeon.generateTower();
+    }
+
     discoveredChestFloors.clear();
     availableRestRations = INITIAL_REST_RATIONS;
     summonedAllyEntityIdCounter = 1;
@@ -948,6 +1270,7 @@ function initGame(selection = DEFAULT_PARTY_CLASSES) {
     updateUI();
     render();
     syncDungeonMapMusic();
+    saveGameProgressIfPossible('new-game-start');
 }
 
 function updateUI() {
@@ -1013,6 +1336,7 @@ function updateUI() {
     }
     updateMap();
     syncDungeonMapMusic();
+    saveGameProgressIfPossible('update-ui');
 }
 
 function getMonsterPortraitPath(monster) {
@@ -1539,6 +1863,7 @@ function endCombat() {
     document.getElementById('combat-modal').style.display = 'none';
     syncDungeonMapMusic();
     checkLevelUps();
+    saveGameProgressIfPossible('end-combat');
 }
 
 function triggerGameOver() {
@@ -1588,6 +1913,7 @@ function triggerGameOver() {
         gameOverModal.style.display = 'flex';
     }
     syncDungeonMapMusic();
+    clearSavedGameProgress();
 }
 
 function checkLevelUps() {
@@ -1788,6 +2114,7 @@ function showLevelUpModal(char) {
         if (typeof updateCombatUI === 'function') {
             updateCombatUI();
         }
+        saveGameProgressIfPossible('level-up');
         checkLevelUps();
     });
     choices.appendChild(confirmButton);
@@ -3532,7 +3859,9 @@ function finalizeChestResolution() {
     closePerceptionChestModal();
     if (getAliveCharacters().length === 0) {
         triggerGameOver();
+        return;
     }
+    saveGameProgressIfPossible('chest-resolution');
 }
 
 function resolveRogueChestAttempt(rogue, openChance) {
@@ -3720,6 +4049,10 @@ function tryMoveParty(dx, dy) {
     currentMonsters = [];
     summonedAllies = [];
     inCombat = false;
+    const destinationRoom = dungeon.getCurrentRoom();
+    if (destinationRoom && destinationRoom.type === 'monster') {
+        saveGameProgressIfPossible('before-combat-room');
+    }
     rollPerceptionEventOnMove();
     if (isGameOver) {
         return true;
@@ -3862,6 +4195,7 @@ document.getElementById('rest').addEventListener('click', () => {
     updateRestButton();
     const rationWord = availableRestRations > 1 ? 'rations' : 'ration';
     logMessage(`Vous vous reposez et restaurez votre sante, votre mana et retirez les affaiblissements, brulures, infections et protections temporaires. (${availableRestRations} ${rationWord} restante${availableRestRations > 1 ? 's' : ''})`);
+    saveGameProgressIfPossible('rest');
 });
 
 // Debug code removed
@@ -3872,18 +4206,43 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('visibilitychange', () => {
     syncDungeonMapMusic();
+    if (document.hidden) {
+        saveGameProgressIfPossible('visibility-hidden');
+    }
+});
+
+window.addEventListener('pagehide', () => {
+    saveGameProgressIfPossible('pagehide');
 });
 
 function startGameFromSplash() {
+    const splashScreen = document.getElementById('splash-screen');
+    const hideSplashScreen = () => {
+        if (splashScreen) {
+            splashScreen.style.display = 'none';
+        }
+    };
+
+    if (hasSavedGameProgress()) {
+        const resumeSavedGame = window.confirm('Une sauvegarde hors combat existe.\nOK: reprendre cette partie\nAnnuler: demarrer une nouvelle partie');
+        if (resumeSavedGame) {
+            const didLoad = loadSavedGameProgress();
+            if (didLoad) {
+                hideSplashScreen();
+                return;
+            }
+            clearSavedGameProgress();
+        } else {
+            clearSavedGameProgress();
+        }
+    }
+
     if (selectedPartyClasses.length !== PARTY_SIZE) {
         updateSplashPartySelectionStatus();
         return;
     }
 
-    const splashScreen = document.getElementById('splash-screen');
-    if (splashScreen) {
-        splashScreen.style.display = 'none';
-    }
+    hideSplashScreen();
     hasGameStarted = true;
     initGame(selectedPartyClasses);
 }
@@ -3892,22 +4251,29 @@ function updateSplashPartySelectionStatus() {
     const statusNode = document.getElementById('splash-party-status');
     const continueButton = document.getElementById('splash-continue');
     const selectedCount = selectedPartyClasses.length;
+    const hasSave = hasSavedGameProgress();
     const isReady = selectedCount === PARTY_SIZE;
+    const canContinue = isReady || hasSave;
 
     if (continueButton) {
-        continueButton.disabled = !isReady;
+        continueButton.disabled = !canContinue;
+        continueButton.textContent = hasSave ? 'Continuer (sauvegarde)' : 'Continuer';
     }
 
     if (!statusNode) {
         return;
     }
 
-    statusNode.classList.toggle('ready', isReady);
+    statusNode.classList.toggle('ready', canContinue);
     if (splashPartySelectionNotice) {
         statusNode.textContent = splashPartySelectionNotice;
         return;
     }
-    if (isReady) {
+    if (hasSave) {
+        statusNode.textContent = 'Sauvegarde detectee: vous pouvez reprendre votre partie.';
+        return;
+    }
+    if (canContinue) {
         statusNode.textContent = `Groupe pret: ${selectedPartyClasses.length}/${PARTY_SIZE}`;
         return;
     }

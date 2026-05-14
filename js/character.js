@@ -2837,6 +2837,10 @@ function updateCharacterUI() {
         div.appendChild(inventoryButton);
         container.appendChild(div);
     });
+
+    if (typeof saveGameProgressIfPossible === 'function') {
+        saveGameProgressIfPossible('character-ui-refresh');
+    }
 }
 
 function openInventoryModal(characterIndex) {
