@@ -2121,6 +2121,8 @@ class Character {
         this.level++;
         this.unspentStatPoints += this.getLevelUpStatPoints();
         this.pendingLevelUp = true;
+        this.health = this.maxHealth;
+        this.mana = this.maxMana;
     }
 
     canAllocateLevelUpStats(pointsByStat) {
