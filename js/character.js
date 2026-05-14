@@ -1616,6 +1616,21 @@ class Character {
                 window.playRandomSpellCast({ volume });
             }
         };
+        const playMeleeHitSound = (volume = 0.9) => {
+            if (typeof window.playRandomSwordHit !== 'function') {
+                return;
+            }
+            const hasDualDaggers = this.classType === 'Rogue' && this.isDualWieldingDaggers();
+            window.playRandomSwordHit({ volume });
+            if (!hasDualDaggers) {
+                return;
+            }
+            window.setTimeout(() => {
+                if (typeof window.playRandomSwordHit === 'function') {
+                    window.playRandomSwordHit({ volume });
+                }
+            }, 90);
+        };
         const markAssassinationOnCriticalKill = (targetMonster, criticalCount = 0) => {
             this.markAssassinationFollowUpIfEligible(targetMonster, criticalCount);
         };
@@ -1656,9 +1671,7 @@ class Character {
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
             const contactEffectText = applyWeaponContactEffects();
-            if (typeof window.playRandomSwordHit === 'function') {
-                window.playRandomSwordHit({ volume: 0.9 });
-            }
+            playMeleeHitSound(0.9);
             return `${this.name} frappe avec une epee pour ${damage} degats.${criticalText}${contactEffectText}`;
         }
 
@@ -1679,9 +1692,7 @@ class Character {
                 this.pendingCoupDeMortFollowUp = true;
             }
             const contactEffectText = applyWeaponContactEffects();
-            if (typeof window.playRandomSwordHit === 'function') {
-                window.playRandomSwordHit({ volume: 0.93 });
-            }
+            playMeleeHitSound(0.93);
             if (targetWasKilled) {
                 return `${this.name} utilise Coup de mort et tue ${monster.name} (${damage} degats). Enchainement disponible !${criticalText}${contactEffectText}`;
             }
@@ -1716,9 +1727,7 @@ class Character {
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
             const contactEffectText = applyWeaponContactEffects();
-            if (typeof window.playRandomSwordHit === 'function') {
-                window.playRandomSwordHit({ volume: 0.94 });
-            }
+            playMeleeHitSound(0.94);
             return `${this.name} declenche Frappe heroique et inflige ${damage} degats.${criticalText}${contactEffectText}`;
         }
 
@@ -1743,9 +1752,7 @@ class Character {
                 stunText = ' La cible est etourdie 1 tour.';
             }
             const contactEffectText = applyWeaponContactEffects();
-            if (typeof window.playRandomSwordHit === 'function') {
-                window.playRandomSwordHit({ volume: 0.98 });
-            }
+            playMeleeHitSound(0.98);
             return `${this.name} assene un Coup devastateur pour ${damage} degats.${stunText}${criticalText}${contactEffectText}`;
         }
 
@@ -1785,9 +1792,7 @@ class Character {
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
             const contactEffectText = applyWeaponContactEffects();
-            if (typeof window.playRandomSwordHit === 'function') {
-                window.playRandomSwordHit({ volume: 0.86 });
-            }
+            playMeleeHitSound(0.86);
             return `${this.name} frappe au baton pour ${damage} degats.${criticalText}${contactEffectText}`;
         }
 
@@ -1799,9 +1804,7 @@ class Character {
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
             const contactEffectText = applyWeaponContactEffects();
-            if (typeof window.playRandomSwordHit === 'function') {
-                window.playRandomSwordHit({ volume: 0.86 });
-            }
+            playMeleeHitSound(0.86);
             return `${this.name} donne un coup de baton pour ${damage} degats.${criticalText}${contactEffectText}`;
         }
 
@@ -1983,6 +1986,7 @@ class Character {
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
             const contactEffectText = applyWeaponContactEffects();
+            playMeleeHitSound(0.9);
             return `${this.name} reussit Backstab et inflige ${damage} degats.${criticalText}${contactEffectText}`;
         }
 
@@ -2001,6 +2005,7 @@ class Character {
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
             const contactEffectText = applyWeaponContactEffects();
+            playMeleeHitSound(0.9);
             return `${this.name} execute Frappe de l ombre et inflige ${damage} degats.${criticalText}${contactEffectText}`;
         }
 
@@ -2011,6 +2016,7 @@ class Character {
             const contactEffectText = applyWeaponContactEffects();
             let criticalCount = firstOutcome.isCritical ? 1 : 0;
             markAssassinationOnCriticalKill(monster, criticalCount);
+            playMeleeHitSound(0.9);
             if (!monster.isAlive()) {
                 return `${this.name} dechaine Pluie de lames et inflige ${firstDamage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
             }
@@ -2041,13 +2047,8 @@ class Character {
             const contactEffectText = applyWeaponContactEffects();
             let criticalCount = firstOutcome.isCritical ? 1 : 0;
             markAssassinationOnCriticalKill(monster, criticalCount);
-            if (typeof window.playRandomSwordHit === 'function') {
-                window.playRandomSwordHit({ volume: 0.88 });
-            }
+            playMeleeHitSound(0.88);
             if (this.classType === 'Rogue' && this.isDualWieldingDaggers()) {
-                if (typeof window.playRandomSwordHit === 'function') {
-                    window.playRandomSwordHit({ volume: 0.88 });
-                }
                 if (!monster.isAlive()) {
                     return `${this.name} attaque rapidement avec deux dagues et inflige ${damage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
                 }
@@ -2069,6 +2070,7 @@ class Character {
         const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
         markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
         const contactEffectText = applyWeaponContactEffects();
+        playMeleeHitSound(0.9);
         return `${this.name} attaque pour ${damage} degats.${criticalText}${contactEffectText}`;
     }
 
