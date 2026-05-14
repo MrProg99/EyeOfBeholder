@@ -335,19 +335,48 @@ h3 {
 
 #controls {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr auto auto auto 1fr auto;
     grid-template-areas:
-        '. up .'
-        'left down right'
-        'stairs rest .';
-    gap: 6px;
-    width: min(680px, 100%);
-    align-self: center;
+        '. . up . . .'
+        '. left down right . rest'
+        'stairs . . . . .';
+    gap: 8px;
+    width: 100%;
+    align-self: stretch;
 }
 
 #controls button {
     padding: 7px 10px;
     font-size: 14px;
+}
+
+#controls button.main-ui-icon-btn {
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+    padding: 0;
+    border-radius: 8px;
+    border: 1px solid #6f6f6f;
+    background-color: #2c2c2c;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    justify-self: center;
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+    text-indent: -9999px;
+    overflow: hidden;
+}
+
+#controls button.main-ui-icon-btn:hover {
+    background-color: #3a3a3a;
+    filter: brightness(1.08);
+}
+
+#controls button.main-ui-icon-btn:disabled {
+    filter: grayscale(0.85);
 }
 
 #move-up {
@@ -374,12 +403,59 @@ h3 {
     grid-area: rest;
 }
 
+#move-up.main-ui-icon-btn {
+    background-image: url('../Images/Deplacement_Haut.png');
+}
+
+#move-down.main-ui-icon-btn {
+    background-image: url('../Images/Deplacement_Bas.png');
+}
+
+#move-left.main-ui-icon-btn {
+    background-image: url('../Images/Deplacement_Gauche.png');
+}
+
+#move-right.main-ui-icon-btn {
+    background-image: url('../Images/Deplacement_Droite.png');
+}
+
+#rest.main-ui-icon-btn {
+    position: relative;
+    background-image: url('../Images/Repos.png');
+    justify-self: end;
+    align-self: center;
+}
+
+#rest.main-ui-icon-btn::after {
+    content: attr(data-rations);
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    border: 1px solid #222;
+    background: #2f6f3e;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    text-indent: 0;
+}
+
+#rest.main-ui-icon-btn[data-rations="0"]::after {
+    background: #8a3e3e;
+}
+
 #character-panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 8px;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+    display: block;
+    margin: 0;
 }
 
 #character-panel-header h3 {
@@ -387,10 +463,35 @@ h3 {
 }
 
 #character-panel-header #open-bestiary {
-    margin-left: auto;
+    margin-left: 0;
     width: auto;
     min-width: 130px;
     padding: 7px 12px;
+}
+
+#character-panel-header #open-bestiary.main-ui-icon-btn {
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+    padding: 0;
+    border-radius: 8px;
+    border: 1px solid #6f6f6f;
+    background-color: #2c2c2c;
+    background-image: url('../Images/Bestiaire.png');
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+    text-indent: -9999px;
+    overflow: hidden;
+}
+
+#character-panel-header #open-bestiary.main-ui-icon-btn:hover {
+    background-color: #3a3a3a;
+    filter: brightness(1.08);
 }
 
 #utility-panel {
@@ -431,6 +532,7 @@ h3 {
     border: 1px solid #2f2f2f;
     border-radius: 10px;
     padding: 10px;
+    position: relative;
     display: flex;
     flex-direction: column;
     min-height: 210px;

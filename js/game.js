@@ -551,6 +551,23 @@ function setCombatActionButtonVisual(button, action, hint = '') {
     button.classList.add('combat-action-with-icon');
 }
 
+function setCombatCenterActionsLayout(centerActions, mode = 'list') {
+    if (!centerActions) {
+        return;
+    }
+    if (mode === 'icon-grid') {
+        centerActions.style.gridTemplateColumns = 'repeat(auto-fit, minmax(70px, max-content))';
+        centerActions.style.justifyContent = 'start';
+        centerActions.style.alignContent = 'start';
+        centerActions.style.overflowY = 'auto';
+        return;
+    }
+    centerActions.style.gridTemplateColumns = '1fr';
+    centerActions.style.justifyContent = 'stretch';
+    centerActions.style.alignContent = 'start';
+    centerActions.style.overflowY = 'auto';
+}
+
 class SummonedAlly {
     constructor(name, health, attack, defense, options = {}) {
         this.entityType = 'summon';
@@ -1943,16 +1960,39 @@ function getRestButtonLabel() {
     return `Se Reposer (${availableRestRations} ${rationWord})`;
 }
 
+function configureMainScreenIconButtons() {
+    const iconButtonConfigs = [
+        { id: 'move-up', hint: 'Deplacement vers le haut' },
+        { id: 'move-down', hint: 'Deplacement vers le bas' },
+        { id: 'move-left', hint: 'Deplacement vers la gauche' },
+        { id: 'move-right', hint: 'Deplacement vers la droite' },
+        { id: 'open-bestiary', hint: 'Ouvrir le bestiaire' },
+        { id: 'rest', hint: 'Se reposer' }
+    ];
+    iconButtonConfigs.forEach((config) => {
+        const button = document.getElementById(config.id);
+        if (!button) {
+            return;
+        }
+        button.classList.add('main-ui-icon-btn');
+        button.title = config.hint;
+        button.setAttribute('aria-label', config.hint);
+    });
+}
+
 function updateRestButton() {
     const restButton = document.getElementById('rest');
     if (!restButton) {
         return;
     }
+    const restLabel = getRestButtonLabel();
     restButton.style.display = 'block';
-    restButton.textContent = getRestButtonLabel();
+    restButton.textContent = restLabel;
+    restButton.dataset.rations = String(Math.max(0, availableRestRations));
     restButton.title = availableRestRations > 0
-        ? 'Utiliser 1 ration pour restaurer le groupe.'
-        : 'Aucune ration disponible.';
+        ? `${restLabel} - Utiliser 1 ration pour restaurer le groupe.`
+        : `${restLabel} - Aucune ration disponible.`;
+    restButton.setAttribute('aria-label', restLabel);
 }
 
 function updateStairsButton(room) {
@@ -2299,6 +2339,7 @@ function updateCombatUI() {
         // do not clear log here (preserve history) â€” leave content
     }
     centerActions.innerHTML = '';
+    setCombatCenterActionsLayout(centerActions, 'list');
     charsDiv.innerHTML = '';
 
     // Validate combat state
@@ -2406,6 +2447,7 @@ function updateCombatUI() {
     } else {
         activeDiv.innerHTML = '';
         activeDiv.style.display = 'none';
+        setCombatCenterActionsLayout(centerActions, 'icon-grid');
 
         const abilities = activeChar.getAbilities();
         abilities.forEach(action => {
@@ -2948,6 +2990,7 @@ function finishCharacterAction(activeChar, shouldCheckVictory) {
 function showHealTargetSelection(activeChar) {
     const centerActions = document.getElementById('combat-modal-center-actions');
     const combatLog = document.getElementById('combat-modal-log');
+    setCombatCenterActionsLayout(centerActions, 'list');
     centerActions.innerHTML = '';
 
     // Allow selecting any alive character (including self)
@@ -2977,6 +3020,7 @@ function showProtectionTargetSelection(activeChar) {
     if (!centerActions) {
         return;
     }
+    setCombatCenterActionsLayout(centerActions, 'list');
     centerActions.innerHTML = '';
 
     const possibleTargets = characters.filter((character) => character.isAlive());
@@ -3007,6 +3051,7 @@ function showCombatPotionSelection(activeChar) {
     if (!centerActions) {
         return;
     }
+    setCombatCenterActionsLayout(centerActions, 'list');
     centerActions.innerHTML = '';
 
     const potions = typeof getCombatPotionsForCharacter === 'function'
@@ -3074,6 +3119,7 @@ function showCombatPotionSelection(activeChar) {
 
 function showMonsterTargetSelection(activeChar, action) {
     const centerActions = document.getElementById('combat-modal-center-actions');
+    setCombatCenterActionsLayout(centerActions, 'list');
     centerActions.innerHTML = '';
     const aliveMonsters = currentMonsters.filter(m => m.isAlive());
     aliveMonsters.forEach((m, idx) => {
@@ -3131,6 +3177,7 @@ function showCoupDeMortFollowUpTargetSelection(activeChar, aliveMonsters) {
     if (!centerActions) {
         return false;
     }
+    setCombatCenterActionsLayout(centerActions, 'list');
     centerActions.innerHTML = '';
     const activeDiv = document.getElementById('combat-modal-active-character');
     if (activeDiv) {
@@ -3183,6 +3230,7 @@ function showAssassinationFollowUpTargetSelection(activeChar, aliveMonsters) {
     if (!centerActions) {
         return false;
     }
+    setCombatCenterActionsLayout(centerActions, 'list');
     centerActions.innerHTML = '';
     const activeDiv = document.getElementById('combat-modal-active-character');
     if (activeDiv) {
@@ -4501,5 +4549,6 @@ if (gameOverRestartButton) {
     });
 }
 
+configureMainScreenIconButtons();
 selectedPartyClasses = sanitizePartyClassSelection(selectedPartyClasses);
 renderSplashPartySelection();
