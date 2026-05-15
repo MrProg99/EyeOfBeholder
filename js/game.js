@@ -463,6 +463,7 @@ const COMBAT_ACTION_ICON_PATHS = Object.freeze({
     Assomer: 'Images/Action_Assomer.png',
     Backstab: 'Images/Action_Backstab.png',
     Bloquer: 'Images/Action_Bloquer.png',
+    Provocation: 'Images/Action_Provocation.png',
     'Boule de feu': 'Images/Action_fireball.png',
     'Lance de glace': 'Images/Action_lanceGlace.png',
     'Magic Missile': 'Images/action_MagicMissile.png',
@@ -868,6 +869,49 @@ function getAliveCombatAllies() {
         ...getAliveCharacters(),
         ...getAliveSummonedAllies()
     ];
+}
+
+function getProvocationTarget(candidates) {
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+        return null;
+    }
+    const tauntingWarriors = candidates.filter((entity) => (
+        entity
+        && entity.entityType === 'character'
+        && entity.classType === 'Warrior'
+        && typeof entity.isAlive === 'function'
+        && entity.isAlive()
+        && typeof entity.hasProvocationActive === 'function'
+        && entity.hasProvocationActive()
+    ));
+    if (tauntingWarriors.length === 0) {
+        return null;
+    }
+    tauntingWarriors.sort((left, right) => {
+        const leftTurns = Math.max(0, Math.floor(Number(left.provocationTurns) || 0));
+        const rightTurns = Math.max(0, Math.floor(Number(right.provocationTurns) || 0));
+        return rightTurns - leftTurns;
+    });
+    return tauntingWarriors[0] || null;
+}
+
+function pickMonsterAttackTarget(candidates) {
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+        return null;
+    }
+    const livingCandidates = candidates.filter((entity) => (
+        entity
+        && typeof entity.isAlive === 'function'
+        && entity.isAlive()
+    ));
+    if (livingCandidates.length === 0) {
+        return null;
+    }
+    const provocationTarget = getProvocationTarget(livingCandidates);
+    if (provocationTarget) {
+        return provocationTarget;
+    }
+    return livingCandidates[Math.floor(Math.random() * livingCandidates.length)];
 }
 
 function getActiveSummonCountForCaster(caster, summonType) {
@@ -2459,7 +2503,7 @@ function updateCombatUI() {
                 disabledReason = `Recharge: ${activeChar.assomerCooldownTurns} tours`;
             }
 
-            if (action === 'Coup de mort' && typeof activeChar.canUseCoupDeMort === 'function' && !activeChar.canUseCoupDeMort()) {
+            if (action === 'Provocation' && typeof activeChar.canUseProvocation === 'function' && !activeChar.canUseProvocation()) {
                 disabledReason = `Recharge: ${activeChar.coupDeMortCooldownTurns} tours`;
             }
 
@@ -2510,7 +2554,7 @@ function updateCombatUI() {
                 btn.addEventListener('click', () => handleCombatAction(action));
             } else if (action === 'Soin de groupe' && activeChar.classType === 'Druid') {
                 btn.addEventListener('click', () => handleCombatAction(action));
-            } else if (action === 'Garde du fer' || action === 'Evasion' || action === 'Renouveau') {
+            } else if (action === 'Garde du fer' || action === 'Evasion' || action === 'Renouveau' || action === 'Provocation') {
                 btn.addEventListener('click', () => handleCombatAction(action));
             } else if (action === 'Invocation de squelette' && activeChar.classType === 'Necromancer') {
                 btn.addEventListener('click', () => handleCombatAction(action));
@@ -2622,6 +2666,10 @@ function updateCombatUI() {
         const miniProtectionText = typeof ally.getProtectionStatusText === 'function' ? ally.getProtectionStatusText() : '';
         if (miniProtectionText) {
             miniStatuses.push(miniProtectionText);
+        }
+        const miniProvocationText = typeof ally.getProvocationStatusText === 'function' ? ally.getProvocationStatusText() : '';
+        if (miniProvocationText) {
+            miniStatuses.push(miniProvocationText);
         }
         const miniStatusHtml = miniStatuses.length > 0
             ? `
@@ -3317,6 +3365,7 @@ function handleCombatAction(action) {
     const aliveMonsters = currentMonsters.filter(m => m.isAlive());
     const nonTargetedActions = new Set([
         'Bloquer',
+        'Provocation',
         'Invocation de squelette',
         'Invocation de totem',
         'Invocation de totem de mort',
@@ -3368,7 +3417,10 @@ function performMonsterBasicAttack(monster, aliveChars) {
             return;
         }
 
-        const target = availableTargets[Math.floor(Math.random() * availableTargets.length)];
+        const target = pickMonsterAttackTarget(availableTargets);
+        if (!target) {
+            return;
+        }
         const attackValue = typeof monster.getCurrentAttack === 'function' ? monster.getCurrentAttack() : monster.attack;
         const rawDamage = Math.max(1, attackValue);
         const damageContext = {
@@ -3445,14 +3497,7 @@ function performSpiderQueenAction(spiderQueen, aliveMonsters, aliveAllies, alive
     }
 
     const pickRandomLivingTarget = (entities) => {
-        if (!Array.isArray(entities) || entities.length === 0) {
-            return null;
-        }
-        const validTargets = entities.filter((entity) => entity && entity.isAlive());
-        if (validTargets.length === 0) {
-            return null;
-        }
-        return validTargets[Math.floor(Math.random() * validTargets.length)];
+        return pickMonsterAttackTarget(entities);
     };
 
     const cloudChanceWeight = Number.isFinite(spiderQueen.poisonCloudChance)
@@ -3717,7 +3762,10 @@ function performShamanAction(shaman, aliveMonsters, aliveChars) {
     }
 
     if (canWeaken && actionRoll < 0.85) {
-        const target = aliveChars[Math.floor(Math.random() * aliveChars.length)];
+        const target = pickMonsterAttackTarget(aliveChars);
+        if (!target) {
+            return false;
+        }
         if (typeof target.applyAttackWeakness === 'function') {
             if (!consumeMana(weakenCost)) {
                 return false;
@@ -3767,7 +3815,10 @@ function performSpiderAction(spider, aliveMonsters, aliveChars) {
     const targets = webTargets.length > 0 ? webTargets : aliveChars;
     const canUseWeb = spider.webTurns > 0 && targets.length > 0;
     if (canUseWeb && Math.random() < 0.45) {
-        const target = targets[Math.floor(Math.random() * targets.length)];
+        const target = pickMonsterAttackTarget(targets);
+        if (!target) {
+            return false;
+        }
         if (typeof target.applyWebbed === 'function') {
             target.applyWebbed(spider.webTurns);
             logMessage(`${spider.name} lance une toile sur ${target.name} et l'immobilise pour ${spider.webTurns} tours.`);

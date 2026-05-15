@@ -160,7 +160,7 @@ const CLASS_SKILL_TREE = {
         { id: 'warrior_coup_epee', action: 'Coup d epee', unlockLevel: 1, maxRank: 4, powerPerRank: 0.1 },
         { id: 'warrior_bloquer', action: 'Bloquer', unlockLevel: 1, maxRank: 1 },
         { id: 'warrior_assomer', action: 'Assomer', unlockLevel: 1, maxRank: 4, powerPerRank: 0.05, rankDescription: '+3% chance de reussite/rang' },
-        { id: 'warrior_coup_mort', action: 'Coup de mort', unlockLevel: 3, maxRank: 4, powerPerRank: 0.14 },
+        { id: 'warrior_coup_mort', action: 'Provocation', unlockLevel: 3, maxRank: 1, rankDescription: 'Force tous les monstres a cibler le guerrier pendant 1 tour' },
         { id: 'warrior_frappe_heroique', action: 'Frappe heroique', unlockLevel: 5, maxRank: 4, powerPerRank: 0.12 },
         { id: 'warrior_garde_fer', action: 'Garde du fer', unlockLevel: 7, maxRank: 4, powerPerRank: 0.1 },
         { id: 'warrior_coup_devastateur', action: 'Coup devastateur', unlockLevel: 9, maxRank: 4, powerPerRank: 0.15 }
@@ -713,6 +713,8 @@ class Character {
         this.usedAssomerThisTurn = false;
         this.coupDeMortCooldownTurns = 0;
         this.usedCoupDeMortThisTurn = false;
+        this.provocationTurns = 0;
+        this.provocationAppliedThisTurn = false;
         this.pendingCoupDeMortFollowUp = false;
         this.pendingAssassinationFollowUp = false;
         this.backstabCooldownTurns = 0;
@@ -864,6 +866,18 @@ class Character {
         return `Protection: ${this.protectionShieldValue} PV (${this.protectionShieldTurns} ${turnLabel})`;
     }
 
+    hasProvocationActive() {
+        return this.classType === 'Warrior' && this.provocationTurns > 0;
+    }
+
+    getProvocationStatusText() {
+        if (!this.hasProvocationActive()) {
+            return '';
+        }
+        const turnLabel = this.provocationTurns > 1 ? 'tours' : 'tour';
+        return `Provocation: cible prioritaire (${this.provocationTurns} ${turnLabel})`;
+    }
+
     absorbProtectionDamage(incomingDamage) {
         const normalizedIncomingDamage = Math.max(0, Math.floor(incomingDamage || 0));
         if (normalizedIncomingDamage <= 0 || !this.hasProtectionShield()) {
@@ -911,6 +925,14 @@ class Character {
                 this.usedSkeletonSummonThisTurn = false;
             } else {
                 this.skeletonSummonCooldownTurns -= 1;
+            }
+        }
+
+        if (this.provocationTurns > 0) {
+            if (this.provocationAppliedThisTurn) {
+                this.provocationAppliedThisTurn = false;
+            } else {
+                this.provocationTurns -= 1;
             }
         }
 
@@ -1034,17 +1056,32 @@ class Character {
         this.usedAssomerThisTurn = this.assomerCooldownTurns > 0;
     }
 
-    canUseCoupDeMort() {
+    canUseProvocation() {
         return this.classType === 'Warrior' && this.coupDeMortCooldownTurns <= 0;
     }
 
-    setCoupDeMortCooldown(turns) {
+    setProvocationCooldown(turns) {
         this.coupDeMortCooldownTurns = Math.max(0, Math.floor(turns || 0));
         this.usedCoupDeMortThisTurn = this.coupDeMortCooldownTurns > 0;
     }
 
+    applyProvocation(turns = 1, skipFirstTurnTick = true) {
+        const duration = Math.max(1, Math.floor(turns || 0));
+        this.provocationTurns = Math.max(this.provocationTurns, duration);
+        this.provocationAppliedThisTurn = Boolean(skipFirstTurnTick);
+        return this.provocationTurns;
+    }
+
+    canUseCoupDeMort() {
+        return this.canUseProvocation();
+    }
+
+    setCoupDeMortCooldown(turns) {
+        this.setProvocationCooldown(turns);
+    }
+
     hasPendingCoupDeMortFollowUp() {
-        return this.classType === 'Warrior' && this.pendingCoupDeMortFollowUp;
+        return false;
     }
 
     clearCoupDeMortFollowUp() {
@@ -1644,7 +1681,6 @@ class Character {
             // For non-attack actions, monster may be null. Only return for attack actions.
             if (
                 action === 'Coup d epee'
-                || action === 'Coup de mort'
                 || action === 'Assomer'
                 || action === 'Magic Missile'
                 || action === 'Backstab'
@@ -1681,28 +1717,15 @@ class Character {
             return `${this.name} frappe avec une epee pour ${damage} degats.${criticalText}${contactEffectText}`;
         }
 
-        if (action === 'Coup de mort') {
-            if (!this.canUseCoupDeMort()) {
-                return `${this.name} ne peut pas encore utiliser Coup de mort (${this.coupDeMortCooldownTurns} tours restants).`;
+        if (action === 'Provocation') {
+            if (!this.canUseProvocation()) {
+                return `${this.name} ne peut pas encore utiliser Provocation (${this.coupDeMortCooldownTurns} tours restants).`;
             }
-            this.setCoupDeMortCooldown(3);
+            this.setProvocationCooldown(3);
             this.clearCoupDeMortFollowUp();
-            const baseDamage = Math.max(1, currentAttack + 4);
-            const rawDamage = this.scalePhysicalDamage(baseDamage, action);
-            const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
-            const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
-            const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
-            markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
-            const targetWasKilled = !monster.isAlive();
-            if (targetWasKilled) {
-                this.pendingCoupDeMortFollowUp = true;
-            }
-            const contactEffectText = applyWeaponContactEffects();
-            playMeleeHitSound(0.93);
-            if (targetWasKilled) {
-                return `${this.name} utilise Coup de mort et tue ${monster.name} (${damage} degats). Enchainement disponible !${criticalText}${contactEffectText}`;
-            }
-            return `${this.name} utilise Coup de mort sur ${monster.name} pour ${damage} degats.${criticalText}${contactEffectText}`;
+            const duration = this.applyProvocation(1, true);
+            const turnLabel = duration > 1 ? 'tours' : 'tour';
+            return `${this.name} provoque les ennemis ! Tous les monstres doivent l'attaquer pendant ${duration} ${turnLabel}.`;
         }
 
         if (action === 'Assomer') {
@@ -2808,6 +2831,8 @@ function updateCharacterUI() {
         const infectionLine = infectionText ? `<br><span class="debuff-status">${infectionText}</span>` : '';
         const protectionText = typeof char.getProtectionStatusText === 'function' ? char.getProtectionStatusText() : '';
         const protectionLine = protectionText ? `<br><span class="debuff-status">${protectionText}</span>` : '';
+        const provocationText = typeof char.getProvocationStatusText === 'function' ? char.getProvocationStatusText() : '';
+        const provocationLine = provocationText ? `<br><span class="debuff-status">${provocationText}</span>` : '';
         const assomerLine = (char.classType === 'Warrior' && char.assomerCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Assomer recharge: ${char.assomerCooldownTurns} tours</span>`
             : '';
@@ -2817,8 +2842,8 @@ function updateCharacterUI() {
         const summonLine = (char.classType === 'Necromancer' && char.skeletonSummonCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Invocation squelette recharge: ${char.skeletonSummonCooldownTurns} tours</span>`
             : '';
-        const coupDeMortLine = (char.classType === 'Warrior' && char.coupDeMortCooldownTurns > 0)
-            ? `<br><span class="skill-cooldown">Coup de mort recharge: ${char.coupDeMortCooldownTurns} tours</span>`
+        const provocationCooldownLine = (char.classType === 'Warrior' && char.coupDeMortCooldownTurns > 0)
+            ? `<br><span class="skill-cooldown">Provocation recharge: ${char.coupDeMortCooldownTurns} tours</span>`
             : '';
         const pendingPointsLine = char.unspentStatPoints > 0
             ? `<br><span class="skill-cooldown">Points a distribuer: ${char.unspentStatPoints}</span>`
@@ -2841,8 +2866,9 @@ function updateCharacterUI() {
             ${burnLine}
             ${infectionLine}
             ${protectionLine}
+            ${provocationLine}
             ${assomerLine}
-            ${coupDeMortLine}
+            ${provocationCooldownLine}
             ${backstabLine}
             ${summonLine}
         `;
@@ -2987,11 +3013,12 @@ function renderInventoryCharacterHeader(char, characterIndex) {
     const burnText = typeof char.getBurnStatusText === 'function' ? char.getBurnStatusText() : '';
     const infectionText = typeof char.getInfectionStatusText === 'function' ? char.getInfectionStatusText() : '';
     const protectionText = typeof char.getProtectionStatusText === 'function' ? char.getProtectionStatusText() : '';
+    const provocationText = typeof char.getProvocationStatusText === 'function' ? char.getProvocationStatusText() : '';
     const resistanceSummary = typeof char.getDamageResistanceSummaryText === 'function'
         ? char.getDamageResistanceSummaryText()
         : '';
     const inventoryPortraitClass = `inventory-character-portrait${typeof char.isInfected === 'function' && char.isInfected() ? ' status-infected' : ''}`;
-    const statusLines = [weaknessText, webText, coldNumbText, burnText, infectionText, protectionText].filter(Boolean)
+    const statusLines = [weaknessText, webText, coldNumbText, burnText, infectionText, protectionText, provocationText].filter(Boolean)
         .map((status) => `<div class="inventory-status">${status}</div>`)
         .join('');
 
