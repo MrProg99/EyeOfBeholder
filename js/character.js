@@ -23,7 +23,8 @@ const CHARACTER_PORTRAITS = {
     Mage: 'Images/Mage.png',
     Rogue: 'Images/Voleur.png',
     Necromancer: 'Images/Necromancien.png',
-    Druid: 'Images/Duide.png'
+    Druid: 'Images/Duide.png',
+    Archer: 'Images/Archer.png'
 };
 const INVENTORY_ITEM_ICONS = {
     weapon_sword: 'Images/epee.png',
@@ -47,6 +48,8 @@ const partyInventory = [
     { id: 'weapon_short_sword_bronze', name: 'Epee courte en bronze', type: 'weapon', attackBonus: 2, defenseBonus: 0, strengthBonus: 2, rarity: 'common', quantity: 1 },
     { id: 'weapon_short_sword_steel', name: 'Epee courte en acier', type: 'weapon', attackBonus: 4, defenseBonus: 0, strengthBonus: 4, perceptionBonus: 1, rarity: 'rare', quantity: 1 },
     { id: 'weapon_oak_staff', name: 'Baton renforce', type: 'weapon', attackBonus: 2, defenseBonus: 1, strengthBonus: 1, intelligenceBonus: 1, magicBonus: 2, rarity: 'rare', quantity: 1 },
+    { id: 'weapon_hunter_bow', name: 'Arc de chasseur', type: 'weapon', attackBonus: 3, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 2, rarity: 'common', quantity: 1 },
+    { id: 'weapon_war_longbow', name: 'Grand arc de guerre', type: 'weapon', attackBonus: 5, defenseBonus: 0, strengthBonus: 3, perceptionBonus: 3, rarity: 'rare', quantity: 0 },
     { id: 'ring_guard', name: 'Anneau de garde', type: 'ring', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, physicalResistanceBonus: 6, rarity: 'common', quantity: 2 },
     { id: 'ring_rage', name: 'Anneau de rage', type: 'ring', attackBonus: 2, defenseBonus: 0, strengthBonus: 2, magicBonus: 1, rarity: 'rare', quantity: 1 },
     { id: 'armor_leather', name: 'Armure de cuir', type: 'armor', attackBonus: 0, defenseBonus: 2, vitalityBonus: 2, rarity: 'common', quantity: 1 },
@@ -85,6 +88,12 @@ const STARTING_EQUIPMENT_KITS = {
         { id: 'starter_druid_ring', name: 'Anneau des clairieres', type: 'ring', attackBonus: 0, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, rarity: 'rare' },
         { id: 'starter_druid_boots', name: 'Bottes de racines', type: 'boots', attackBonus: 0, defenseBonus: 0, rarity: 'common' }
     ],
+    Archer: [
+        { id: 'starter_archer_weapon', name: 'Arc court use', type: 'weapon', attackBonus: 1, defenseBonus: 0, strengthBonus: 1, perceptionBonus: 1, rarity: 'common' },
+        { id: 'starter_archer_armor', name: 'Gilet de cuir souple', type: 'armor', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, rarity: 'common' },
+        { id: 'starter_archer_ring', name: 'Anneau de visee', type: 'ring', attackBonus: 0, defenseBonus: 0, perceptionBonus: 1, rarity: 'common' },
+        { id: 'starter_archer_boots', name: 'Bottes de pisteur', type: 'boots', attackBonus: 0, defenseBonus: 0, vitalityBonus: 1, perceptionBonus: 1, rarity: 'common' }
+    ],
     Rogue: [
         { id: 'starter_rogue_weapon', name: 'Dague usee', type: 'weapon', attackBonus: 1, defenseBonus: 0, strengthBonus: 1, perceptionBonus: 1, rarity: 'common' },
         { id: 'starter_rogue_armor', name: 'Veste de cuir fin', type: 'armor', attackBonus: 0, defenseBonus: 0, rarity: 'common' },
@@ -107,6 +116,7 @@ const MAX_CHARACTER_NAME_LENGTH = 24;
 const CLASS_BASE_STATS = {
     Warrior: { health: 100, mana: 50, attack: 9, defense: 5 },
     Rogue: { health: 80, mana: 50, attack: 7, defense: 3 },
+    Archer: { health: 84, mana: 50, attack: 8, defense: 3 },
     Mage: { health: 60, mana: 50, attack: 5, defense: 2 },
     Necromancer: { health: 64, mana: 58, attack: 5, defense: 2 },
     Druid: { health: 58, mana: 62, attack: 5, defense: 2 },
@@ -115,6 +125,7 @@ const CLASS_BASE_STATS = {
 const CLASS_XP_PER_LEVEL = {
     Warrior: 120,
     Rogue: 135,
+    Archer: 140,
     Mage: 150,
     Necromancer: 150,
     Druid: 150,
@@ -123,6 +134,7 @@ const CLASS_XP_PER_LEVEL = {
 const CLASS_PRIMARY_STATS = {
     Warrior: { strength: 8, intelligence: 2, vitality: 8, perception: 4, magic: 1 },
     Rogue: { strength: 7, intelligence: 3, vitality: 6, perception: 8, magic: 2 },
+    Archer: { strength: 7, intelligence: 3, vitality: 6, perception: 9, magic: 2 },
     Mage: { strength: 2, intelligence: 10, vitality: 4, perception: 5, magic: 9 },
     Necromancer: { strength: 2, intelligence: 9, vitality: 5, perception: 5, magic: 9 },
     Druid: { strength: 2, intelligence: 9, vitality: 4, perception: 6, magic: 8 },
@@ -138,9 +150,11 @@ const COLD_NUMB_DAMAGE_MULTIPLIER = 0.75;
 const COLD_NUMB_DEFAULT_TURNS = 2;
 const BURN_DEFAULT_TURNS = 2;
 const SKILL_RANK_POWER_BONUS = 0.12;
+const ARCHER_BOSS_MONSTER_TYPES = new Set(['green_slime', 'ice_golem', 'fire_golem', 'spectral_knight', 'spider_queen']);
 const CLASS_WEAPON_FAMILIES = {
     Warrior: null,
     Rogue: new Set(['dagger', 'short_sword']),
+    Archer: new Set(['bow']),
     Mage: new Set(['staff']),
     Necromancer: new Set(['staff']),
     Druid: new Set(['staff'])
@@ -148,6 +162,7 @@ const CLASS_WEAPON_FAMILIES = {
 const CLASS_ARMOR_FAMILIES = {
     Warrior: null,
     Rogue: new Set(['robe', 'cloth', 'leather']),
+    Archer: new Set(['robe', 'cloth', 'leather']),
     Mage: new Set(['robe']),
     Necromancer: new Set(['robe']),
     Druid: new Set(['robe'])
@@ -172,6 +187,12 @@ const CLASS_SKILL_TREE = {
         { id: 'rogue_evasion', action: 'Evasion', unlockLevel: 3, maxRank: 4, powerPerRank: 0.08 },
         { id: 'rogue_frappe_ombre', action: 'Frappe de l ombre', unlockLevel: 5, maxRank: 4, powerPerRank: 0.14 },
         { id: 'rogue_pluie_lames', action: 'Pluie de lames', unlockLevel: 7, maxRank: 4, powerPerRank: 0.12 }
+    ],
+    Archer: [
+        { id: 'archer_attaque_normale', action: 'Attaque normale', unlockLevel: 1, maxRank: 4, powerPerRank: 0.1 },
+        { id: 'archer_attaque_ciblee', action: 'Attaque ciblee', unlockLevel: 1, maxRank: 4, powerPerRank: 0.1, rankDescription: 'Marque la cible: +35% degats subis pendant 2 tours' },
+        { id: 'archer_fleche_perforante', action: 'Fleche perforante', unlockLevel: 3, maxRank: 4, powerPerRank: 0.12, rankDescription: 'Ignore completement l armure de la cible' },
+        { id: 'archer_fleche_empoisonnee', action: 'Fleche empoisonnee', unlockLevel: 5, maxRank: 4, powerPerRank: 0.1, rankDescription: 'Applique un poison pendant 3 tours' }
     ],
     Mage: [
         { id: 'mage_attaque_baton', action: 'Attaque au baton', unlockLevel: 1, maxRank: 3, powerPerRank: 0.08 },
@@ -208,6 +229,12 @@ const CLASS_PASSIVE_TREE = {
         { id: 'rogue_assassination', name: 'Assasination', unlockLevel: 2, maxRank: 1, effects: { assassinationEnabled: 1 } },
         { id: 'rogue_lames', name: 'Lames affutees', unlockLevel: 4, maxRank: 4, effects: { physicalDamagePercent: 0.05 } },
         { id: 'rogue_reflexes', name: 'Reflexes d ombre', unlockLevel: 6, maxRank: 4, effects: { allResistanceFlat: 3 } }
+    ],
+    Archer: [
+        { id: 'archer_tir_mortel', name: 'Tir mortel', unlockLevel: 2, maxRank: 1, effects: { damageVsLowHealthPercent: 0.15 } },
+        { id: 'archer_perce_armure', name: 'Perce-armure', unlockLevel: 4, maxRank: 1, effects: { armorPenetrationPercent: 0.15 } },
+        { id: 'archer_tir_opportuniste', name: 'Tir opportuniste', unlockLevel: 6, maxRank: 1, effects: { damageVsImpairedPercent: 0.15 } },
+        { id: 'archer_instinct_chasseur', name: 'Instinct du chasseur', unlockLevel: 8, maxRank: 1, effects: { damageVsBossPercent: 0.1 } }
     ],
     Mage: [
         { id: 'mage_focus', name: 'Focus arcanique', unlockLevel: 2, maxRank: 4, effects: { spellDamagePercent: 0.06 } },
@@ -323,6 +350,18 @@ function buildPassiveEffectDescription(passiveDefinition) {
     }
     if (effects.allResistanceFlat) {
         parts.push(`+${effects.allResistanceFlat}% toutes resistances/rang`);
+    }
+    if (effects.damageVsLowHealthPercent) {
+        parts.push(`+${Math.round(effects.damageVsLowHealthPercent * 100)}% degats contre cibles a moins de 40% PV`);
+    }
+    if (effects.armorPenetrationPercent) {
+        parts.push(`Les fleches ignorent ${Math.round(effects.armorPenetrationPercent * 100)}% de l armure`);
+    }
+    if (effects.damageVsImpairedPercent) {
+        parts.push(`+${Math.round(effects.damageVsImpairedPercent * 100)}% degats contre cibles ralenties, etourdies ou affaiblies`);
+    }
+    if (effects.damageVsBossPercent) {
+        parts.push(`+${Math.round(effects.damageVsBossPercent * 100)}% degats contre les boss`);
     }
     if (effects.riposteDamageRatio) {
         parts.push(`Riposte: ${Math.round(effects.riposteDamageRatio * 100)}% degats a l'agresseur`);
@@ -540,6 +579,9 @@ function getWeaponFamily(item) {
     if (name.includes('dague') || id.includes('dagger')) {
         return 'dagger';
     }
+    if (name.includes('arc') || id.includes('bow')) {
+        return 'bow';
+    }
     if (name.includes('baton') || id.includes('staff')) {
         return 'staff';
     }
@@ -633,6 +675,9 @@ function canCharacterEquipItem(character, item, targetSlot = null) {
         if (character.classType === 'Rogue') {
             return { allowed: false, reason: 'armes autorisees: dague ou epee courte' };
         }
+        if (character.classType === 'Archer') {
+            return { allowed: false, reason: 'armes autorisees: arc uniquement' };
+        }
         if (character.classType === 'Mage' || character.classType === 'Necromancer' || character.classType === 'Druid') {
             return { allowed: false, reason: 'armes autorisees: baton uniquement' };
         }
@@ -649,6 +694,9 @@ function canCharacterEquipItem(character, item, targetSlot = null) {
         return { allowed: true, reason: '' };
     }
     if (character.classType === 'Rogue') {
+        return { allowed: false, reason: 'armures autorisees: cuir ou plus leger' };
+    }
+    if (character.classType === 'Archer') {
         return { allowed: false, reason: 'armures autorisees: cuir ou plus leger' };
     }
     if (character.classType === 'Mage' || character.classType === 'Necromancer' || character.classType === 'Druid') {
@@ -719,6 +767,8 @@ class Character {
         this.pendingAssassinationFollowUp = false;
         this.backstabCooldownTurns = 0;
         this.usedBackstabThisTurn = false;
+        this.targetedShotCooldownTurns = 0;
+        this.usedTargetedShotThisTurn = false;
         this.skeletonSummonCooldownTurns = 0;
         this.usedSkeletonSummonThisTurn = false;
     }
@@ -917,6 +967,14 @@ class Character {
                 this.usedBackstabThisTurn = false;
             } else {
                 this.backstabCooldownTurns -= 1;
+            }
+        }
+
+        if (this.targetedShotCooldownTurns > 0) {
+            if (this.usedTargetedShotThisTurn) {
+                this.usedTargetedShotThisTurn = false;
+            } else {
+                this.targetedShotCooldownTurns -= 1;
             }
         }
 
@@ -1159,6 +1217,15 @@ class Character {
         this.usedBackstabThisTurn = this.backstabCooldownTurns > 0;
     }
 
+    canUseTargetedShot() {
+        return this.classType === 'Archer' && this.targetedShotCooldownTurns <= 0;
+    }
+
+    setTargetedShotCooldown(turns) {
+        this.targetedShotCooldownTurns = Math.max(0, Math.floor(turns || 0));
+        this.usedTargetedShotThisTurn = this.targetedShotCooldownTurns > 0;
+    }
+
     canUseSkeletonSummon() {
         return this.classType === 'Necromancer' && this.skeletonSummonCooldownTurns <= 0;
     }
@@ -1350,7 +1417,8 @@ class Character {
 
     getBackstabSuccessChance(monster = null) {
         const currentAttack = this.getCurrentAttack();
-        const baseChance = 0.2 + (currentAttack * 0.02);
+        const safePerception = Math.max(0, Math.floor(this.perception || 0));
+        const baseChance = 0.15 + (currentAttack * 0.01) + (safePerception * 0.015);
         const isTargetStunned = Boolean(
             monster
             && (
@@ -1362,6 +1430,104 @@ class Character {
         const skillBonus = backstabSkillRank > 1 ? (backstabSkillRank - 1) * 0.03 : 0;
         const bonusChance = (isTargetStunned ? BACKSTAB_STUN_BONUS_CHANCE : 0) + skillBonus;
         return Math.max(0.25, Math.min(0.95, baseChance + bonusChance));
+    }
+
+    isArcherArrowAction(action = '') {
+        if (this.classType !== 'Archer') {
+            return false;
+        }
+        return action === 'Attaque normale'
+            || action === 'Attaque ciblee'
+            || action === 'Fleche perforante'
+            || action === 'Fleche empoisonnee';
+    }
+
+    isMonsterSlowedForArcherPassives(monster = null) {
+        if (!monster) {
+            return false;
+        }
+        if (typeof monster.isSlowed === 'function' && monster.isSlowed()) {
+            return true;
+        }
+        return (monster.slowedTurns || 0) > 0
+            || (monster.webbedTurns || 0) > 0
+            || (monster.coldNumbTurns || 0) > 0;
+    }
+
+    isMonsterBossForArcherPassives(monster = null) {
+        if (!monster) {
+            return false;
+        }
+        if (typeof monster.isBoss === 'function' && monster.isBoss()) {
+            return true;
+        }
+        if (monster.isBossMonster) {
+            return true;
+        }
+        return ARCHER_BOSS_MONSTER_TYPES.has(String(monster.monsterType || '').toLowerCase());
+    }
+
+    getArcherConditionalDamageMultiplier(monster = null) {
+        if (this.classType !== 'Archer' || !monster) {
+            return 1;
+        }
+        let bonusPercent = 0;
+
+        const monsterMaxHealth = Math.max(1, Math.floor(Number(monster.maxHealth) || 1));
+        const monsterCurrentHealth = Math.max(0, Math.floor(Number(monster.health) || 0));
+        const isLowHealthTarget = (monsterCurrentHealth / monsterMaxHealth) <= 0.4;
+        if (isLowHealthTarget) {
+            bonusPercent += this.getPassiveEffectTotal('damageVsLowHealthPercent');
+        }
+
+        const isStunnedTarget = Boolean(
+            (typeof monster.isStunned === 'function' && monster.isStunned())
+            || ((monster.stunnedTurns || 0) > 0)
+        );
+        const isWeakenedTarget = Boolean(
+            (typeof monster.hasAttackWeakness === 'function' && monster.hasAttackWeakness())
+            || ((monster.attackWeakenTurns || 0) > 0)
+        );
+        const isImpairedTarget = this.isMonsterSlowedForArcherPassives(monster) || isStunnedTarget || isWeakenedTarget;
+        if (isImpairedTarget) {
+            bonusPercent += this.getPassiveEffectTotal('damageVsImpairedPercent');
+        }
+
+        if (this.isMonsterBossForArcherPassives(monster)) {
+            bonusPercent += this.getPassiveEffectTotal('damageVsBossPercent');
+        }
+
+        return 1 + Math.max(0, bonusPercent);
+    }
+
+    getArcherArmorPenetrationPercent(action = '') {
+        if (!this.isArcherArrowAction(action)) {
+            return 0;
+        }
+        const penetration = this.getPassiveEffectTotal('armorPenetrationPercent');
+        return Math.max(0, Math.min(0.95, Number(penetration) || 0));
+    }
+
+    scaleArcherArrowDamage(baseDamage, action = '', monster = null) {
+        const rawDamage = this.scalePhysicalDamage(baseDamage, action);
+        if (!this.isArcherArrowAction(action)) {
+            return rawDamage;
+        }
+        const multiplier = this.getArcherConditionalDamageMultiplier(monster);
+        return Math.max(1, Math.round(rawDamage * multiplier));
+    }
+
+    buildArcherArrowDamageContext(action = '', options = {}) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        const damageContext = {
+            damageType: normalizedOptions.damageType || 'physical',
+            ignoreArmor: Boolean(normalizedOptions.ignoreArmor)
+        };
+        const armorPenetration = this.getArcherArmorPenetrationPercent(action);
+        if (!damageContext.ignoreArmor && armorPenetration > 0) {
+            damageContext.armorPenetrationPercent = armorPenetration;
+        }
+        return damageContext;
     }
 
     getCriticalStrikeChance() {
@@ -1695,6 +1861,10 @@ class Character {
                 || action === 'Frappe de l ombre'
                 || action === 'Pluie de lames'
                 || action === 'Malediction funeste'
+                || action === 'Attaque normale'
+                || action === 'Attaque ciblee'
+                || action === 'Fleche perforante'
+                || action === 'Fleche empoisonnee'
             ) {
                 return `${this.name} n'a pas de cible.`;
             }
@@ -2099,6 +2269,87 @@ class Character {
                 return `${this.name} attaque rapidement avec deux dagues et inflige ${damage} + ${secondDamage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
             }
             return `${this.name} attaque rapidement pour ${damage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
+        }
+
+        if (action === 'Attaque normale') {
+            const baseDamage = Math.max(1, currentAttack);
+            const rawDamage = this.scaleArcherArrowDamage(baseDamage, action, monster);
+            const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
+            const damageContext = this.buildArcherArrowDamageContext(action);
+            const damage = monster.takeDamage(criticalOutcome.damage, damageContext);
+            const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
+            markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            playMeleeHitSound(0.82);
+            return `${this.name} tire une fleche et inflige ${damage} degats.${criticalText}`;
+        }
+
+        if (action === 'Attaque ciblee') {
+            if (!this.canUseTargetedShot()) {
+                return `${this.name} ne peut pas encore utiliser Attaque ciblee (${this.targetedShotCooldownTurns} tours restants).`;
+            }
+            this.setTargetedShotCooldown(2);
+            const baseDamage = Math.max(1, currentAttack + 2);
+            const rawDamage = this.scaleArcherArrowDamage(baseDamage, action, monster);
+            const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
+            const damageContext = this.buildArcherArrowDamageContext(action);
+            const damage = monster.takeDamage(criticalOutcome.damage, damageContext);
+            const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
+            markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const markBonus = 0.35;
+            const markTurns = 2;
+            let markText = '';
+            if (
+                monster
+                && typeof monster.applyDamageTakenVulnerability === 'function'
+                && typeof monster.isAlive === 'function'
+                && monster.isAlive()
+            ) {
+                const appliedMark = monster.applyDamageTakenVulnerability(markBonus, markTurns);
+                const appliedPercent = Math.round((Number(appliedMark && appliedMark.percent) || markBonus) * 100);
+                const appliedTurns = Math.max(1, Math.floor(Number(appliedMark && appliedMark.turns) || markTurns));
+                const turnLabel = appliedTurns > 1 ? 'tours' : 'tour';
+                markText = ` Cible marquee: +${appliedPercent}% degats subis (${appliedTurns} ${turnLabel}).`;
+            }
+            playMeleeHitSound(0.83);
+            return `${this.name} ajuste une Attaque ciblee et inflige ${damage} degats.${criticalText}${markText}`;
+        }
+
+        if (action === 'Fleche perforante') {
+            const baseDamage = Math.max(1, currentAttack + 6);
+            const rawDamage = this.scaleArcherArrowDamage(baseDamage, action, monster);
+            const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
+            const damageContext = this.buildArcherArrowDamageContext(action, { ignoreArmor: true });
+            const damage = monster.takeDamage(criticalOutcome.damage, damageContext);
+            const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
+            markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            playMeleeHitSound(0.86);
+            return `${this.name} transperce ${monster.name} avec une Fleche perforante pour ${damage} degats.${criticalText}`;
+        }
+
+        if (action === 'Fleche empoisonnee') {
+            const baseDamage = Math.max(1, currentAttack + 3);
+            const rawDamage = this.scaleArcherArrowDamage(baseDamage, action, monster);
+            const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
+            const damageContext = this.buildArcherArrowDamageContext(action);
+            const damage = monster.takeDamage(criticalOutcome.damage, damageContext);
+            const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
+            markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            let poisonText = '';
+            if (
+                monster
+                && typeof monster.applyPoison === 'function'
+                && typeof monster.isAlive === 'function'
+                && monster.isAlive()
+            ) {
+                const poisonDamage = Math.max(1, this.scaleArcherArrowDamage(4, action, monster));
+                const poisonTurns = 3;
+                const appliedPoison = monster.applyPoison(poisonDamage, poisonTurns);
+                const appliedTurns = Math.max(1, Math.floor(Number(appliedPoison && appliedPoison.turns) || poisonTurns));
+                const turnLabel = appliedTurns > 1 ? 'tours' : 'tour';
+                poisonText = ` Empoisonnement: ${Math.max(1, Math.floor(Number(appliedPoison && appliedPoison.damage) || poisonDamage))} degats/tour pendant ${appliedTurns} ${turnLabel}.`;
+            }
+            playMeleeHitSound(0.84);
+            return `${this.name} tire une Fleche empoisonnee et inflige ${damage} degats.${criticalText}${poisonText}`;
         }
 
         const rawDamage = this.scalePhysicalDamage(Math.max(1, currentAttack), action);
@@ -2839,6 +3090,9 @@ function updateCharacterUI() {
         const backstabLine = (char.classType === 'Rogue' && char.backstabCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Backstab recharge: ${char.backstabCooldownTurns} tours</span>`
             : '';
+        const targetedShotLine = (char.classType === 'Archer' && char.targetedShotCooldownTurns > 0)
+            ? `<br><span class="skill-cooldown">Attaque ciblee recharge: ${char.targetedShotCooldownTurns} tours</span>`
+            : '';
         const summonLine = (char.classType === 'Necromancer' && char.skeletonSummonCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Invocation squelette recharge: ${char.skeletonSummonCooldownTurns} tours</span>`
             : '';
@@ -2870,6 +3124,7 @@ function updateCharacterUI() {
             ${assomerLine}
             ${provocationCooldownLine}
             ${backstabLine}
+            ${targetedShotLine}
             ${summonLine}
         `;
 
@@ -2889,7 +3144,12 @@ function updateCharacterUI() {
 }
 
 function openInventoryModal(characterIndex) {
-    selectedInventoryCharacterIndex = characterIndex;
+    const characterCount = Array.isArray(characters) ? characters.length : 0;
+    if (characterCount <= 0) {
+        return;
+    }
+    const normalizedIndex = Math.max(0, Math.min(characterCount - 1, Math.floor(Number(characterIndex) || 0)));
+    selectedInventoryCharacterIndex = normalizedIndex;
     selectedInventorySlot = null;
     renderInventoryModal();
 
@@ -2906,6 +3166,23 @@ function closeInventoryModal() {
     if (modal) {
         modal.style.display = 'none';
     }
+}
+
+function switchInventoryModalCharacter(step) {
+    const characterCount = Array.isArray(characters) ? characters.length : 0;
+    if (characterCount <= 0) {
+        return;
+    }
+    const normalizedStep = Math.floor(Number(step) || 0);
+    if (normalizedStep === 0) {
+        return;
+    }
+    const currentIndex = selectedInventoryCharacterIndex === null
+        ? 0
+        : Math.max(0, Math.min(characterCount - 1, Math.floor(Number(selectedInventoryCharacterIndex) || 0)));
+    const nextIndex = ((currentIndex + normalizedStep) % characterCount + characterCount) % characterCount;
+    selectedInventoryCharacterIndex = nextIndex;
+    renderInventoryModal();
 }
 
 function equipCharacterItem(characterIndex, slot, itemId) {
@@ -3003,6 +3280,9 @@ function renderInventoryCharacterHeader(char, characterIndex) {
     if (!charName || !char) {
         return;
     }
+    const totalCharacters = Array.isArray(characters) ? characters.length : 0;
+    const canNavigateCharacters = totalCharacters > 1;
+    const currentCharacterNumber = Math.max(1, Math.min(totalCharacters || 1, characterIndex + 1));
 
     const portraitPath = CHARACTER_PORTRAITS[char.classType] || '';
     const healthPercent = char.maxHealth > 0 ? Math.max(0, Math.min(100, Math.round((char.health / char.maxHealth) * 100))) : 0;
@@ -3026,7 +3306,12 @@ function renderInventoryCharacterHeader(char, characterIndex) {
         <div class="inventory-character-card">
             ${portraitPath ? `<img class="${inventoryPortraitClass}" src="${portraitPath}" alt="${char.classType}">` : ''}
             <div class="inventory-character-meta">
-                <h3>${char.name} <span>(${char.classType})</span></h3>
+                <div class="inventory-character-title-row">
+                    <button id="inventory-prev-character" class="inventory-character-nav-btn" type="button" title="Personnage precedent" aria-label="Personnage precedent" ${canNavigateCharacters ? '' : 'disabled'}>&larr;</button>
+                    <h3>${char.name} <span>(${char.classType})</span></h3>
+                    <button id="inventory-next-character" class="inventory-character-nav-btn" type="button" title="Personnage suivant" aria-label="Personnage suivant" ${canNavigateCharacters ? '' : 'disabled'}>&rarr;</button>
+                </div>
+                <div class="inventory-character-nav-meta">Personnage ${currentCharacterNumber}/${Math.max(1, totalCharacters)}</div>
                 <div class="inventory-rename-row">
                     <label for="inventory-character-rename">Nom</label>
                     <input id="inventory-character-rename" type="text" maxlength="${MAX_CHARACTER_NAME_LENGTH}" value="${char.name}">
@@ -3062,21 +3347,28 @@ function renderInventoryCharacterHeader(char, characterIndex) {
         </div>
     `;
 
-    const renameInput = document.getElementById('inventory-character-rename');
-    const renameButton = document.getElementById('inventory-rename-button');
-    if (!renameInput || !renameButton) {
-        return;
+    const previousCharacterButton = document.getElementById('inventory-prev-character');
+    if (previousCharacterButton) {
+        previousCharacterButton.addEventListener('click', () => switchInventoryModalCharacter(-1));
+    }
+    const nextCharacterButton = document.getElementById('inventory-next-character');
+    if (nextCharacterButton) {
+        nextCharacterButton.addEventListener('click', () => switchInventoryModalCharacter(1));
     }
 
-    renameButton.addEventListener('click', () => {
-        renameCharacter(characterIndex, renameInput.value);
-    });
-    renameInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
+    const renameInput = document.getElementById('inventory-character-rename');
+    const renameButton = document.getElementById('inventory-rename-button');
+    if (renameInput && renameButton) {
+        renameButton.addEventListener('click', () => {
             renameCharacter(characterIndex, renameInput.value);
-        }
-    });
+        });
+        renameInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                renameCharacter(characterIndex, renameInput.value);
+            }
+        });
+    }
 }
 
 function renderInventoryOverview() {

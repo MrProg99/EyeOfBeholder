@@ -27,6 +27,11 @@ const AVAILABLE_PARTY_CLASSES = [
         summary: 'Rapide, agressif et precis.'
     },
     {
+        key: 'Archer',
+        label: 'Archer',
+        summary: 'Tir a distance, marquage de cible et pression constante.'
+    },
+    {
         key: 'Necromancer',
         label: 'Necromancien',
         summary: 'Magie noire: drain, affaiblissement et invocation.'
@@ -121,6 +126,7 @@ const INITIATIVE_BASE = {
         Warrior: 11,
         Mage: 10,
         Rogue: 14,
+        Archer: 13,
         Necromancer: 9,
         Druid: 10
     },
@@ -458,6 +464,10 @@ const COMBAT_ACTION_ICON_PATHS = Object.freeze({
     Attaquer: 'Images/Action_Attaquer.png',
     'Coup d epee': 'Images/Action_Attaquer.png',
     'Attaque rapide': 'Images/Action_Attaquer.png',
+    'Attaque normale': 'Images/Action_AttaqueArc.png',
+    'Attaque ciblee': 'Images/Action_Cible.png',
+    'Fleche perforante': 'Images/Action_FlechePerforante.png',
+    'Fleche empoisonnee': 'Images/Action_flechePoison.png',
     'Attaque au baton': 'Images/Action_Attaquer.png',
     'Coup de baton': 'Images/Action_Attaquer.png',
     Assomer: 'Images/Action_Assomer.png',
@@ -511,10 +521,49 @@ function getCombatActionIconPath(action) {
     return COMBAT_ACTION_ICON_PATHS[action] || '';
 }
 
-function buildCombatActionHint(action, manaCost = 0, disabledReason = '') {
+function formatRateAsPercent(rate) {
+    const safeRate = Math.max(0, Math.min(1, Number(rate) || 0));
+    return `${Math.round(safeRate * 100)}%`;
+}
+
+function buildBackstabActionHint(character) {
+    if (!character || typeof character.getBackstabSuccessChance !== 'function') {
+        return '';
+    }
+
+    const currentAttack = typeof character.getCurrentAttack === 'function'
+        ? Math.max(1, Math.floor(character.getCurrentAttack()))
+        : Math.max(1, Math.floor(Number(character.attack) || 0));
+    const safePerception = Math.max(0, Math.floor(Number(character.perception) || 0));
+    const backstabRank = typeof character.getSkillRank === 'function'
+        ? Math.max(0, Math.floor(character.getSkillRank('rogue_backstab')))
+        : 0;
+    const rankBonusPercent = backstabRank > 1 ? ((backstabRank - 1) * 3) : 0;
+    const chanceWithoutStun = character.getBackstabSuccessChance(null);
+    const chanceWithStun = character.getBackstabSuccessChance({ stunnedTurns: 1 });
+
+    return `Chance sans etourdissement: ${formatRateAsPercent(chanceWithoutStun)} | Chance cible etourdie: ${formatRateAsPercent(chanceWithStun)} | Att: ${currentAttack}, Per: ${safePerception}, Rang: ${backstabRank} | Formule: 15% + 1% Att + 1.5% Per + ${rankBonusPercent}% rang +20% si cible etourdie`;
+}
+
+function buildCombatActionHint(action, manaCost = 0, disabledReason = '', character = null) {
     const hintParts = [String(action || 'Action')];
     if (manaCost > 0) {
         hintParts.push(`Cout: ${manaCost} mana`);
+    }
+    if (action === 'Backstab') {
+        const backstabHint = buildBackstabActionHint(character);
+        if (backstabHint) {
+            hintParts.push(backstabHint);
+        }
+    }
+    if (action === 'Attaque ciblee') {
+        hintParts.push('Marque la cible: +35% degats subis pendant 2 tours');
+    }
+    if (action === 'Fleche perforante') {
+        hintParts.push('Ignore totalement l armure de la cible');
+    }
+    if (action === 'Fleche empoisonnee') {
+        hintParts.push('Applique un poison (degats sur la duree)');
     }
     if (disabledReason) {
         hintParts.push(disabledReason);
@@ -522,7 +571,7 @@ function buildCombatActionHint(action, manaCost = 0, disabledReason = '') {
     return hintParts.join(' - ');
 }
 
-function setCombatActionButtonVisual(button, action, hint = '') {
+function setCombatActionButtonVisual(button, action, hint = '', indicatorText = '') {
     if (!button) {
         return;
     }
@@ -550,6 +599,13 @@ function setCombatActionButtonVisual(button, action, hint = '') {
     }, { once: true });
     button.appendChild(icon);
     button.classList.add('combat-action-with-icon');
+    if (typeof indicatorText === 'string' && indicatorText.length > 0) {
+        const indicator = document.createElement('span');
+        indicator.className = 'combat-action-indicator';
+        indicator.textContent = indicatorText;
+        button.appendChild(indicator);
+        button.classList.add('combat-action-has-indicator');
+    }
 }
 
 function setCombatCenterActionsLayout(centerActions, mode = 'list') {
@@ -2443,6 +2499,10 @@ function updateCombatUI() {
         const roleText = roleTags.length > 0 ? ` | ${roleTags.join(', ')}` : '';
         const stunText = (typeof m.isStunned === 'function' && m.isStunned()) ? ` | Etourdi: ${m.stunnedTurns} tours` : '';
         const burnText = (typeof m.isBurning === 'function' && m.isBurning()) ? ` | Brulure: ${m.burnTurns} tours` : '';
+        const poisonText = (typeof m.isPoisoned === 'function' && m.isPoisoned()) ? ` | Poison: ${m.poisonTurns} tours` : '';
+        const markedText = (typeof m.isMarked === 'function' && m.isMarked())
+            ? ` | ${typeof m.getMarkedStatusText === 'function' ? m.getMarkedStatusText() : 'Marque'}`
+            : '';
         const weakenText = (typeof m.getAttackWeaknessText === 'function' && m.hasAttackWeakness && m.hasAttackWeakness())
             ? ` | ${m.getAttackWeaknessText()}`
             : '';
@@ -2465,7 +2525,7 @@ function updateCombatUI() {
             </div>
             ` : ''}
             <div class="combat-monster-details">
-                <strong>[${idx + 1}] ${m.name}</strong>${roleText}${stunText}${burnText}${weakenText}<br>
+                <strong>[${idx + 1}] ${m.name}</strong>${roleText}${stunText}${burnText}${poisonText}${markedText}${weakenText}<br>
                 PV: ${m.health}/${m.maxHealth}${manaText} - Att: ${displayedMonsterAttack} Def: ${m.defense}
                 <div class="resource-bars compact">
                     <div class="resource-block">
@@ -2511,6 +2571,10 @@ function updateCombatUI() {
                 disabledReason = `Recharge: ${activeChar.backstabCooldownTurns} tours`;
             }
 
+            if (action === 'Attaque ciblee' && typeof activeChar.canUseTargetedShot === 'function' && !activeChar.canUseTargetedShot()) {
+                disabledReason = `Recharge: ${activeChar.targetedShotCooldownTurns} tours`;
+            }
+
             if (action === 'Invocation de squelette' && typeof activeChar.canUseSkeletonSummon === 'function' && !activeChar.canUseSkeletonSummon()) {
                 disabledReason = `Recharge: ${activeChar.skeletonSummonCooldownTurns} tours`;
             }
@@ -2536,8 +2600,11 @@ function updateCombatUI() {
                 disabledReason = `Mana requis: ${actionManaCost}`;
             }
 
-            const actionHint = buildCombatActionHint(action, actionManaCost, disabledReason);
-            setCombatActionButtonVisual(btn, action, actionHint);
+            const actionHint = buildCombatActionHint(action, actionManaCost, disabledReason, activeChar);
+            const actionIndicator = action === 'Backstab' && typeof activeChar.getBackstabSuccessChance === 'function'
+                ? formatRateAsPercent(activeChar.getBackstabSuccessChance(null))
+                : '';
+            setCombatActionButtonVisual(btn, action, actionHint, actionIndicator);
             if (disabledReason) {
                 btn.disabled = true;
                 centerActions.appendChild(btn);
@@ -2853,6 +2920,22 @@ function performMonsterTurnEntity(monster) {
             }
             if (!monster.isAlive()) {
                 logMessage(`${monster.name} succombe aux flammes.`);
+                return;
+            }
+        }
+    }
+
+    if (typeof monster.consumePoisonTurn === 'function') {
+        const poisonDamage = monster.consumePoisonTurn();
+        if (poisonDamage > 0) {
+            const turnLabel = monster.poisonTurns > 1 ? 'tours restants' : 'tour restant';
+            if (monster.poisonTurns > 0) {
+                logMessage(`${monster.name} subit ${poisonDamage} degats de poison (${monster.poisonTurns} ${turnLabel}).`);
+            } else {
+                logMessage(`${monster.name} subit ${poisonDamage} degats de poison.`);
+            }
+            if (!monster.isAlive()) {
+                logMessage(`${monster.name} succombe au poison.`);
                 return;
             }
         }

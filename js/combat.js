@@ -312,9 +312,11 @@ function resolveDamageWithType(rawDamage, options = {}) {
     const normalizedRawDamage = Math.max(1, Math.floor(rawDamage || 0));
     const ignoreArmor = Boolean(options.ignoreArmor);
     const armorValue = Math.max(0, Math.floor(options.armorValue || 0));
+    const armorPenetrationPercent = Math.max(0, Math.min(0.95, Number(options.armorPenetrationPercent) || 0));
     const resistancePercent = normalizeDamageResistanceValue(options.resistancePercent || 0);
     const minDamage = Math.max(0, Math.floor(options.minDamage || 1));
-    const damageAfterArmor = ignoreArmor ? normalizedRawDamage : calculateDamageWithArmor(normalizedRawDamage, armorValue);
+    const effectiveArmorValue = ignoreArmor ? 0 : Math.max(0, Math.round(armorValue * (1 - armorPenetrationPercent)));
+    const damageAfterArmor = ignoreArmor ? normalizedRawDamage : calculateDamageWithArmor(normalizedRawDamage, effectiveArmorValue);
     const reducedDamage = Math.round(damageAfterArmor * (1 - (resistancePercent / 100)));
     return Math.max(minDamage, reducedDamage);
 }
@@ -345,6 +347,7 @@ class Monster {
         this.entityId = `mon-${monsterEntityIdCounter++}`;
         this.name = name;
         this.monsterType = typeof options.id === 'string' ? options.id : '';
+        this.isBossMonster = Boolean(options.isBoss);
         this.health = health;
         this.maxHealth = health;
         this.attack = attack;
@@ -422,8 +425,12 @@ class Monster {
         this.stunnedTurns = 0;
         this.burnDamage = 0;
         this.burnTurns = 0;
+        this.poisonDamage = 0;
+        this.poisonTurns = 0;
         this.attackWeakenAmount = 0;
         this.attackWeakenTurns = 0;
+        this.damageTakenVulnerabilityPercent = 0;
+        this.damageTakenVulnerabilityTurns = 0;
     }
 
     getCurrentAttack() {
@@ -453,6 +460,36 @@ class Monster {
         return `Affaibli: -${this.attackWeakenAmount} attaque (${this.attackWeakenTurns} ${turnLabel})`;
     }
 
+    applyDamageTakenVulnerability(percent, turns) {
+        const vulnerabilityPercent = Math.max(0, Number(percent) || 0);
+        const vulnerabilityTurns = Math.max(1, Math.floor(turns || 0));
+        if (vulnerabilityPercent <= 0 || vulnerabilityTurns <= 0) {
+            return {
+                percent: this.damageTakenVulnerabilityPercent,
+                turns: this.damageTakenVulnerabilityTurns
+            };
+        }
+        this.damageTakenVulnerabilityPercent = Math.max(this.damageTakenVulnerabilityPercent, vulnerabilityPercent);
+        this.damageTakenVulnerabilityTurns = Math.max(this.damageTakenVulnerabilityTurns, vulnerabilityTurns);
+        return {
+            percent: this.damageTakenVulnerabilityPercent,
+            turns: this.damageTakenVulnerabilityTurns
+        };
+    }
+
+    isMarked() {
+        return this.damageTakenVulnerabilityPercent > 0 && this.damageTakenVulnerabilityTurns > 0;
+    }
+
+    getMarkedStatusText() {
+        if (!this.isMarked()) {
+            return '';
+        }
+        const percent = Math.round(this.damageTakenVulnerabilityPercent * 100);
+        const turnLabel = this.damageTakenVulnerabilityTurns > 1 ? 'tours' : 'tour';
+        return `Marque: +${percent}% degats subis (${this.damageTakenVulnerabilityTurns} ${turnLabel})`;
+    }
+
     getDamageResistance(damageType) {
         const normalizedType = normalizeDamageType(damageType);
         const resistance = this.damageResistances[normalizedType];
@@ -464,12 +501,16 @@ class Monster {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         const damageType = normalizeDamageType(normalizedOptions.damageType || 'physical');
         const resistancePercent = this.getDamageResistance(damageType);
-        const finalDamage = resolveDamageWithType(damage, {
+        const baseDamage = resolveDamageWithType(damage, {
             armorValue: this.defense,
             damageType,
             resistancePercent,
-            ignoreArmor: Boolean(normalizedOptions.ignoreArmor)
+            ignoreArmor: Boolean(normalizedOptions.ignoreArmor),
+            armorPenetrationPercent: normalizedOptions.armorPenetrationPercent || 0
         });
+        const finalDamage = this.isMarked()
+            ? Math.max(1, Math.round(baseDamage * (1 + this.damageTakenVulnerabilityPercent)))
+            : baseDamage;
         this.health -= finalDamage;
         if (finalDamage > 0 && typeof window.queueDamageFlash === 'function') {
             window.queueDamageFlash(this, finalDamage);
@@ -529,6 +570,10 @@ class Monster {
 
     isSpiderQueen() {
         return this.role === 'spider_queen';
+    }
+
+    isBoss() {
+        return this.isBossMonster;
     }
 
     canUseDeathCry() {
@@ -623,6 +668,35 @@ class Monster {
         return finalDamage;
     }
 
+    applyPoison(damage, turns) {
+        const nextPoisonDamage = Math.max(1, Math.floor(damage || 0));
+        const nextPoisonTurns = Math.max(1, Math.floor(turns || 0));
+        this.poisonDamage = Math.max(this.poisonDamage, nextPoisonDamage);
+        this.poisonTurns = Math.max(this.poisonTurns, nextPoisonTurns);
+        return {
+            damage: this.poisonDamage,
+            turns: this.poisonTurns
+        };
+    }
+
+    isPoisoned() {
+        return this.poisonDamage > 0 && this.poisonTurns > 0;
+    }
+
+    consumePoisonTurn() {
+        if (!this.isPoisoned() || !this.isAlive()) {
+            return 0;
+        }
+
+        const finalDamage = this.takeDamage(this.poisonDamage, { damageType: 'poison' });
+
+        this.poisonTurns = Math.max(0, this.poisonTurns - 1);
+        if (this.poisonTurns === 0) {
+            this.poisonDamage = 0;
+        }
+        return finalDamage;
+    }
+
     consumeTurnEffects() {
         const logs = [];
         if (this.hasAttackWeakness()) {
@@ -644,6 +718,13 @@ class Monster {
                 this.poisonCloudUsedThisTurn = false;
             } else {
                 this.poisonCloudCooldownRemaining = Math.max(0, this.poisonCloudCooldownRemaining - 1);
+            }
+        }
+        if (this.isMarked()) {
+            this.damageTakenVulnerabilityTurns = Math.max(0, this.damageTakenVulnerabilityTurns - 1);
+            if (this.damageTakenVulnerabilityTurns === 0) {
+                this.damageTakenVulnerabilityPercent = 0;
+                logs.push(`${this.name} n'est plus marque.`);
             }
         }
         return logs;
