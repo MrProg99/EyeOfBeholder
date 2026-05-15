@@ -1467,8 +1467,8 @@ button:hover {
     border-radius: 6px;
     min-width: 260px;
     width: clamp(260px, 30vw, 420px);
-    max-width: 420px;
-    min-height: 250px;
+    max-width: 220px;
+    min-height: 210px;
     flex: 0 1 clamp(260px, 30vw, 420px);
     border: 1px solid #555;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
@@ -1640,7 +1640,7 @@ button:hover {
     background-color: #333;
     min-width: 230px;
     width: clamp(230px, 28vw, 340px);
-    max-width: 340px;
+    max-width: 240px;
     min-height: 220px;
     flex: 0 1 clamp(230px, 28vw, 340px);
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
@@ -1663,7 +1663,7 @@ button:hover {
     object-fit: scale-down;
     object-position: center 30%;
     border-radius: 5px;
-    border: 1px solid #666;
+    border: 0px solid #666;
     display: block;
     margin-bottom: 6px;
 }

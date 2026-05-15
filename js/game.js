@@ -19,7 +19,7 @@ const AVAILABLE_PARTY_CLASSES = [
     {
         key: 'Mage',
         label: 'Mage',
-        summary: 'Degats de sorts, soins, AOE.'
+        summary: 'Degats de sorts, feu, glace, AOE.'
     },
     {
         key: 'Rogue',
