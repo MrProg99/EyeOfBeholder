@@ -488,6 +488,16 @@ const COMBAT_ACTION_ICON_PATHS = Object.freeze({
     'Invocation de totem de mort': 'Images/Action_TotemMort.png',
     'Boire une potion': 'Images/Action_Potion.png'
 });
+const COMBAT_STATUS_ICON_PATHS = Object.freeze({
+    fire: 'Images/Etat_feu.png',
+    ice: 'Images/Etat_glace.png',
+    poison: 'Images/Etat_poison.png',
+    weakened: 'Images/Etat_affaibli.png',
+    marked: 'Images/Etat_marque.png',
+    webbed: 'Images/Etat_toile.png',
+    protection: 'Images/Etat_protection.png',
+    provocation: 'Images/Etat_provoquer.png'
+});
 
 function getActionManaCost(action) {
     if (typeof action !== 'string' || action.length === 0) {
@@ -519,6 +529,115 @@ function getCombatActionIconPath(action) {
         return '';
     }
     return COMBAT_ACTION_ICON_PATHS[action] || '';
+}
+
+function normalizeCombatStatusTurns(value) {
+    return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+function getCombatPortraitStatusEntries(entity, options = {}) {
+    const entries = [];
+    if (!entity || typeof entity !== 'object') {
+        return entries;
+    }
+
+    const treatAsMonster = Boolean(options.treatAsMonster);
+    const pushStatusEntry = (key, turns, label) => {
+        const iconPath = COMBAT_STATUS_ICON_PATHS[key];
+        const normalizedTurns = normalizeCombatStatusTurns(turns);
+        if (!iconPath || normalizedTurns <= 0) {
+            return;
+        }
+        const entry = {
+            key,
+            turns: normalizedTurns,
+            label: String(label || key)
+        };
+        const existing = entries.find((candidate) => candidate.key === key);
+        if (!existing) {
+            entries.push(entry);
+            return;
+        }
+        if (entry.turns > existing.turns) {
+            existing.turns = entry.turns;
+            existing.label = entry.label;
+        }
+    };
+
+    if (typeof entity.isBurning === 'function' && entity.isBurning()) {
+        pushStatusEntry('fire', entity.burnTurns, 'Brulure');
+    }
+
+    if (treatAsMonster) {
+        if (typeof entity.isPoisoned === 'function' && entity.isPoisoned()) {
+            pushStatusEntry('poison', entity.poisonTurns, 'Poison');
+        }
+        if (typeof entity.isStunned === 'function' && entity.isStunned()) {
+            pushStatusEntry('ice', entity.stunnedTurns, 'Etourdi');
+        }
+        if (typeof entity.hasAttackWeakness === 'function' && entity.hasAttackWeakness()) {
+            pushStatusEntry('weakened', entity.attackWeakenTurns, 'Affaibli');
+        }
+        if (typeof entity.isMarked === 'function' && entity.isMarked()) {
+            pushStatusEntry('marked', entity.damageTakenVulnerabilityTurns, 'Marque');
+        }
+        return entries;
+    }
+
+    if (typeof entity.isPoisoned === 'function' && entity.isPoisoned()) {
+        pushStatusEntry('poison', entity.poisonTurns, 'Poison');
+    }
+    if (typeof entity.isInfected === 'function' && entity.isInfected()) {
+        pushStatusEntry('poison', entity.infectionTurns, 'Infection');
+    }
+    if (typeof entity.isColdNumb === 'function' && entity.isColdNumb()) {
+        pushStatusEntry('ice', entity.coldNumbTurns, 'Engourdi');
+    }
+    if (typeof entity.isStunned === 'function' && entity.isStunned()) {
+        pushStatusEntry('ice', entity.stunnedTurns, 'Etourdi');
+    }
+    if (typeof entity.hasAttackWeakness === 'function' && entity.hasAttackWeakness()) {
+        pushStatusEntry('weakened', entity.attackWeakenTurns, 'Affaibli');
+    }
+    if (typeof entity.isWebbed === 'function' && entity.isWebbed()) {
+        pushStatusEntry('webbed', entity.webbedTurns, 'Toile');
+    }
+    if (typeof entity.hasProtectionShield === 'function' && entity.hasProtectionShield()) {
+        pushStatusEntry('protection', entity.protectionShieldTurns, 'Protection');
+    }
+    if (typeof entity.hasProvocationActive === 'function' && entity.hasProvocationActive()) {
+        pushStatusEntry('provocation', entity.provocationTurns, 'Provocation');
+    }
+    if (typeof entity.isMarked === 'function' && entity.isMarked()) {
+        pushStatusEntry('marked', entity.damageTakenVulnerabilityTurns, 'Marque');
+    }
+
+    return entries;
+}
+
+function buildCombatPortraitStatusIconsHtml(statusEntries) {
+    if (!Array.isArray(statusEntries) || statusEntries.length === 0) {
+        return '';
+    }
+    const iconsHtml = statusEntries.map((entry) => {
+        const iconPath = COMBAT_STATUS_ICON_PATHS[entry.key];
+        const turns = normalizeCombatStatusTurns(entry.turns);
+        if (!iconPath || turns <= 0) {
+            return '';
+        }
+        const turnLabel = turns > 1 ? 'tours' : 'tour';
+        const tooltip = `${entry.label}: ${turns} ${turnLabel}`;
+        return `
+            <div class="combat-status-icon-slot" title="${tooltip}">
+                <img class="combat-status-icon" src="${iconPath}" alt="${entry.label}">
+                <span class="combat-status-turns">${turns}</span>
+            </div>
+        `;
+    }).join('');
+    if (!iconsHtml) {
+        return '';
+    }
+    return `<div class="combat-status-icons">${iconsHtml}</div>`;
 }
 
 function formatRateAsPercent(rate) {
@@ -2511,21 +2630,26 @@ function updateCombatUI() {
             ? ` | Mana: ${m.mana}/${m.maxMana}`
             : '';
         const portraitPath = getMonsterPortraitPath(m);
+        const effectTextFallback = portraitPath ? '' : `${stunText}${burnText}${poisonText}${markedText}${weakenText}`;
         const damageEvent = consumeDamageEvent(m);
         const portraitClass = `combat-monster-portrait${damageEvent.shouldAnimate ? ' damage-hit' : ''}`;
         const damageNumberHtml = damageEvent.damageAmount > 0
             ? `<div class="combat-damage-number">-${damageEvent.damageAmount}</div>`
             : '';
+        const monsterStatusIconsHtml = buildCombatPortraitStatusIconsHtml(
+            getCombatPortraitStatusEntries(m, { treatAsMonster: true })
+        );
         const monsterHealthPercent = m.maxHealth > 0 ? Math.max(0, Math.min(100, Math.round((m.health / m.maxHealth) * 100))) : 0;
         md.innerHTML = `
             ${portraitPath ? `
             <div class="combat-portrait-wrap">
                 <img class="${portraitClass}" src="${portraitPath}" alt="${m.name}">
                 ${damageNumberHtml}
+                ${monsterStatusIconsHtml}
             </div>
             ` : ''}
             <div class="combat-monster-details">
-                <strong>[${idx + 1}] ${m.name}</strong>${roleText}${stunText}${burnText}${poisonText}${markedText}${weakenText}<br>
+                <strong>[${idx + 1}] ${m.name}</strong>${roleText}${effectTextFallback}<br>
                 PV: ${m.health}/${m.maxHealth}${manaText} - Att: ${displayedMonsterAttack} Def: ${m.defense}
                 <div class="resource-bars compact">
                     <div class="resource-block">
@@ -2682,6 +2806,9 @@ function updateCombatUI() {
         const damageNumberHtml = damageEvent.damageAmount > 0
             ? `<div class="combat-damage-number">-${damageEvent.damageAmount}</div>`
             : '';
+        const allyStatusIconsHtml = buildCombatPortraitStatusIconsHtml(
+            getCombatPortraitStatusEntries(ally, { treatAsMonster: false })
+        );
         const healthPercent = ally.maxHealth > 0 ? Math.max(0, Math.min(100, Math.round((ally.health / ally.maxHealth) * 100))) : 0;
         const manaPercent = ally.maxMana > 0 ? Math.max(0, Math.min(100, Math.round((ally.mana / ally.maxMana) * 100))) : 0;
         const resourceBarsHtml = `
@@ -2711,31 +2838,31 @@ function updateCombatUI() {
             : ally.classType;
         const miniStatuses = [];
         const miniWeaknessText = typeof ally.getAttackWeaknessText === 'function' ? ally.getAttackWeaknessText() : '';
-        if (miniWeaknessText) {
+        if (!portraitPath && miniWeaknessText) {
             miniStatuses.push(miniWeaknessText);
         }
         const miniWebText = typeof ally.getWebStatusText === 'function' ? ally.getWebStatusText() : '';
-        if (miniWebText) {
+        if (!portraitPath && miniWebText) {
             miniStatuses.push(miniWebText);
         }
         const miniColdNumbText = typeof ally.getColdNumbStatusText === 'function' ? ally.getColdNumbStatusText() : '';
-        if (miniColdNumbText) {
+        if (!portraitPath && miniColdNumbText) {
             miniStatuses.push(miniColdNumbText);
         }
         const miniBurnText = typeof ally.getBurnStatusText === 'function' ? ally.getBurnStatusText() : '';
-        if (miniBurnText) {
+        if (!portraitPath && miniBurnText) {
             miniStatuses.push(miniBurnText);
         }
         const miniInfectionText = typeof ally.getInfectionStatusText === 'function' ? ally.getInfectionStatusText() : '';
-        if (miniInfectionText) {
+        if (!portraitPath && miniInfectionText) {
             miniStatuses.push(miniInfectionText);
         }
         const miniProtectionText = typeof ally.getProtectionStatusText === 'function' ? ally.getProtectionStatusText() : '';
-        if (miniProtectionText) {
+        if (!portraitPath && miniProtectionText) {
             miniStatuses.push(miniProtectionText);
         }
         const miniProvocationText = typeof ally.getProvocationStatusText === 'function' ? ally.getProvocationStatusText() : '';
-        if (miniProvocationText) {
+        if (!portraitPath && miniProvocationText) {
             miniStatuses.push(miniProvocationText);
         }
         const miniStatusHtml = miniStatuses.length > 0
@@ -2750,6 +2877,7 @@ function updateCombatUI() {
             <div class="combat-portrait-wrap">
                 <img class="${portraitClass}" src="${portraitPath}" alt="${allyRoleText}">
                 ${damageNumberHtml}
+                ${allyStatusIconsHtml}
             </div>
             ` : ''}
             <div class="combat-character-summary-row">
