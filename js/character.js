@@ -233,7 +233,7 @@ const CLASS_SKILL_TREE = {
         { id: 'druid_totem', action: 'Invocation de totem', unlockLevel: 1, maxRank: 4, powerPerRank: 0.08 },
         { id: 'druid_soin_groupe', action: 'Soin de groupe', unlockLevel: 1, maxRank: 4, powerPerRank: 0.1 },
         { id: 'druid_totem_mort', action: 'Invocation de totem de mort', unlockLevel: 3, maxRank: 4, powerPerRank: 0.1 },
-        { id: 'druid_renouveau', action: 'Renouveau', unlockLevel: 5, maxRank: 4, powerPerRank: 0.12 }
+        { id: 'druid_renouveau', action: 'Dechainement d eclair', unlockLevel: 5, maxRank: 4, powerPerRank: 0.12 }
     ]
 };
 const CLASS_PASSIVE_TREE = {
@@ -957,6 +957,8 @@ class Character {
         this.usedBackstabThisTurn = false;
         this.targetedShotCooldownTurns = 0;
         this.usedTargetedShotThisTurn = false;
+        this.perforatingArrowCooldownTurns = 0;
+        this.usedPerforatingArrowThisTurn = false;
         this.skeletonSummonCooldownTurns = 0;
         this.usedSkeletonSummonThisTurn = false;
     }
@@ -1200,6 +1202,14 @@ class Character {
                 this.usedTargetedShotThisTurn = false;
             } else {
                 this.targetedShotCooldownTurns -= 1;
+            }
+        }
+
+        if (this.perforatingArrowCooldownTurns > 0) {
+            if (this.usedPerforatingArrowThisTurn) {
+                this.usedPerforatingArrowThisTurn = false;
+            } else {
+                this.perforatingArrowCooldownTurns -= 1;
             }
         }
 
@@ -1449,6 +1459,15 @@ class Character {
         this.usedTargetedShotThisTurn = this.targetedShotCooldownTurns > 0;
     }
 
+    canUsePerforatingArrow() {
+        return this.classType === 'Archer' && this.perforatingArrowCooldownTurns <= 0;
+    }
+
+    setPerforatingArrowCooldown(turns) {
+        this.perforatingArrowCooldownTurns = Math.max(0, Math.floor(turns || 0));
+        this.usedPerforatingArrowThisTurn = this.perforatingArrowCooldownTurns > 0;
+    }
+
     canUseSkeletonSummon() {
         return this.classType === 'Necromancer' && this.skeletonSummonCooldownTurns <= 0;
     }
@@ -1467,6 +1486,8 @@ class Character {
         this.usedBackstabThisTurn = false;
         this.targetedShotCooldownTurns = 0;
         this.usedTargetedShotThisTurn = false;
+        this.perforatingArrowCooldownTurns = 0;
+        this.usedPerforatingArrowThisTurn = false;
         this.skeletonSummonCooldownTurns = 0;
         this.usedSkeletonSummonThisTurn = false;
         this.pendingCoupDeMortFollowUp = false;
@@ -2292,7 +2313,11 @@ class Character {
             if (typeof monster.applyBurn === 'function') {
                 monster.applyBurn(burnDamage, 2);
             }
-            playSpellCastSound();
+            if (typeof window.playFireballSound === 'function') {
+                window.playFireballSound({ volume: 0.78 });
+            } else {
+                playSpellCastSound();
+            }
             return `${this.name} lance Boule de feu sur ${monster.name} pour ${damage} degats et applique Brulure (2 tours).`;
         }
 
@@ -2468,22 +2493,44 @@ class Character {
             return `${this.name} lance Soin de groupe et restaure ${totalRestored} PV au groupe.`;
         }
 
-        if (action === 'Renouveau') {
+        if (action === 'Dechainement d eclair') {
             const manaCost = 26;
             if (this.mana < manaCost) {
-                return `${this.name} n'a pas assez de mana pour Renouveau.`;
+                return `${this.name} n'a pas assez de mana pour Dechainement d eclair.`;
             }
+
+            const aliveMonsters = (typeof getAliveCombatMonsters === 'function')
+                ? getAliveCombatMonsters()
+                : ((typeof currentMonsters !== 'undefined' && Array.isArray(currentMonsters))
+                    ? currentMonsters.filter((entity) => entity && typeof entity.isAlive === 'function' && entity.isAlive())
+                    : []);
+            if (aliveMonsters.length === 0 && monster && typeof monster.isAlive === 'function' && monster.isAlive()) {
+                aliveMonsters.push(monster);
+            }
+            if (aliveMonsters.length === 0) {
+                return `${this.name} n'a aucune cible pour Dechainement d eclair.`;
+            }
+
             this.mana -= manaCost;
-            const aliveAllies = characters.filter((character) => character && character.isAlive());
-            const healPerAlly = this.scaleMagicSpellPower(18, 10, action);
-            let totalRestored = 0;
-            aliveAllies.forEach((ally) => {
-                const beforeHealth = ally.health;
-                ally.health = Math.min(ally.maxHealth, ally.health + healPerAlly);
-                totalRestored += Math.max(0, ally.health - beforeHealth);
-            });
-            playSpellCastSound(0.74);
-            return `${this.name} invoque Renouveau et restaure ${totalRestored} PV au groupe.`;
+
+            const boltDamage = this.scaleSpellDamage(10, action);
+            const boltCount = 3;
+            const boltMessages = [];
+            for (let boltIndex = 0; boltIndex < boltCount; boltIndex += 1) {
+                const availableTargets = aliveMonsters.filter((entity) => entity && typeof entity.isAlive === 'function' && entity.isAlive());
+                if (availableTargets.length === 0) {
+                    break;
+                }
+                const target = availableTargets[Math.floor(Math.random() * availableTargets.length)];
+                const damage = target.takeDamage(boltDamage, { damageType: 'magic' });
+                boltMessages.push(`Eclair ${boltIndex + 1}: ${target.name} subit ${damage} degats`);
+            }
+            if (typeof window.playDechainementEclairSound === 'function') {
+                window.playDechainementEclairSound({ volume: 0.74 });
+            } else {
+                playSpellCastSound(0.74);
+            }
+            return `${this.name} dechaine les eclairs. ${boltMessages.join(' | ')}.`;
         }
 
         if (action === 'Backstab') {
@@ -2635,6 +2682,10 @@ class Character {
         }
 
         if (action === 'Fleche perforante') {
+            if (!this.canUsePerforatingArrow()) {
+                return `${this.name} ne peut pas encore utiliser Fleche perforante (${this.perforatingArrowCooldownTurns} tours restants).`;
+            }
+            this.setPerforatingArrowCooldown(2);
             const rawDamage = this.scaleArcherArrowDamage(6, action, monster);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damageContext = this.buildArcherArrowDamageContext(action, { ignoreArmor: true });
@@ -3452,6 +3503,9 @@ function updateCharacterUI() {
         const targetedShotLine = (char.classType === 'Archer' && char.targetedShotCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Attaque ciblee recharge: ${char.targetedShotCooldownTurns} tours</span>`
             : '';
+        const perforatingArrowLine = (char.classType === 'Archer' && char.perforatingArrowCooldownTurns > 0)
+            ? `<br><span class="skill-cooldown">Fleche perforante recharge: ${char.perforatingArrowCooldownTurns} tours</span>`
+            : '';
         const summonLine = (char.classType === 'Necromancer' && char.skeletonSummonCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Invocation squelette recharge: ${char.skeletonSummonCooldownTurns} tours</span>`
             : '';
@@ -3484,6 +3538,7 @@ function updateCharacterUI() {
             ${provocationCooldownLine}
             ${backstabLine}
             ${targetedShotLine}
+            ${perforatingArrowLine}
             ${summonLine}
         `;
 

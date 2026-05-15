@@ -284,6 +284,8 @@ const SOUND_EFFECTS = {
     spell4: 'Sound/spell_4.wav',
     spell5: 'Sound/spell_5.wav',
     spell6: 'Sound/spell_6.wav',
+    fireball: 'Sound/Spell_Fireball.mp3',
+    dechainementEclair: 'Sound/Spell_DechainementEclair.mp3',
     monsterDeath: 'Sound/monster-death.mp3'
 };
 const SWORD_HIT_EFFECT_KEYS = [
@@ -465,7 +467,7 @@ const ACTION_MANA_COSTS = Object.freeze({
     'Malediction funeste': 18,
     Protection: 16,
     'Soin de groupe': 22,
-    Renouveau: 26
+    'Dechainement d eclair': 26
 });
 const COMBAT_ACTION_ICON_PATHS = Object.freeze({
     Attaquer: 'Images/Action_Attaquer.png',
@@ -493,6 +495,7 @@ const COMBAT_ACTION_ICON_PATHS = Object.freeze({
     'Invocation de squelette': 'Images/Action_Squelette.png',
     'Invocation de totem': 'Images/Action_TotemVie.png',
     'Invocation de totem de mort': 'Images/Action_TotemMort.png',
+    'Dechainement d eclair': 'Images/Action_DechainementEclair.png',
     'Boire une potion': 'Images/Action_Potion.png'
 });
 const COMBAT_STATUS_ICON_PATHS = Object.freeze({
@@ -687,6 +690,9 @@ function buildCombatActionHint(action, manaCost = 0, disabledReason = '', charac
     }
     if (action === 'Fleche empoisonnee') {
         hintParts.push('Applique un poison (degats sur la duree)');
+    }
+    if (action === 'Dechainement d eclair') {
+        hintParts.push('Lance 3 eclairs sur des cibles aleatoires');
     }
     if (disabledReason) {
         hintParts.push(disabledReason);
@@ -1927,6 +1933,10 @@ function hasAliveMonsters() {
     return currentMonsters.some((monster) => monster.isAlive());
 }
 
+function getAliveCombatMonsters() {
+    return currentMonsters.filter((monster) => monster && typeof monster.isAlive === 'function' && monster.isAlive());
+}
+
 function handleMonsterDefeatPassiveEffects(defeatedMonster) {
     if (!defeatedMonster || !Array.isArray(characters) || characters.length === 0) {
         return;
@@ -2179,6 +2189,20 @@ window.playRandomSpellCast = function playRandomSpellCast(options = {}) {
     const randomIndex = Math.floor(Math.random() * SPELL_CAST_EFFECT_KEYS.length);
     const effectKey = SPELL_CAST_EFFECT_KEYS[randomIndex];
     window.playSoundEffect(effectKey, options);
+};
+window.playFireballSound = function playFireballSound(options = {}) {
+    if (soundEffectBank.fireball) {
+        window.playSoundEffect('fireball', options);
+        return;
+    }
+    window.playRandomSpellCast(options);
+};
+window.playDechainementEclairSound = function playDechainementEclairSound(options = {}) {
+    if (soundEffectBank.dechainementEclair) {
+        window.playSoundEffect('dechainementEclair', options);
+        return;
+    }
+    window.playRandomSpellCast(options);
 };
 
 function getRestButtonLabel() {
@@ -2712,6 +2736,10 @@ function updateCombatUI() {
                 disabledReason = `Recharge: ${activeChar.targetedShotCooldownTurns} tours`;
             }
 
+            if (action === 'Fleche perforante' && typeof activeChar.canUsePerforatingArrow === 'function' && !activeChar.canUsePerforatingArrow()) {
+                disabledReason = `Recharge: ${activeChar.perforatingArrowCooldownTurns} tours`;
+            }
+
             if (action === 'Invocation de squelette' && typeof activeChar.canUseSkeletonSummon === 'function' && !activeChar.canUseSkeletonSummon()) {
                 disabledReason = `Recharge: ${activeChar.skeletonSummonCooldownTurns} tours`;
             }
@@ -2758,7 +2786,7 @@ function updateCombatUI() {
                 btn.addEventListener('click', () => handleCombatAction(action));
             } else if (action === 'Soin de groupe' && activeChar.classType === 'Druid') {
                 btn.addEventListener('click', () => handleCombatAction(action));
-            } else if (action === 'Garde du fer' || action === 'Evasion' || action === 'Renouveau' || action === 'Provocation') {
+            } else if (action === 'Garde du fer' || action === 'Evasion' || action === 'Dechainement d eclair' || action === 'Provocation') {
                 btn.addEventListener('click', () => handleCombatAction(action));
             } else if (action === 'Invocation de squelette' && activeChar.classType === 'Necromancer') {
                 btn.addEventListener('click', () => handleCombatAction(action));
@@ -3596,7 +3624,7 @@ function handleCombatAction(action) {
         'Protection',
         'Garde du fer',
         'Evasion',
-        'Renouveau'
+        'Dechainement d eclair'
     ]);
     const isAttack = !nonTargetedActions.has(action);
     if (isAttack && aliveMonsters.length > 1) {
