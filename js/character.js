@@ -42,66 +42,66 @@ const INVENTORY_ITEM_ICONS = {
 const MANA_USING_CLASSES = new Set(['Mage', 'Necromancer', 'Druid']);
 
 const partyInventory = [
-    { id: 'weapon_iron_sword', name: 'Epee en fer', type: 'weapon', attackBonus: 3, defenseBonus: 0, strengthBonus: 3, rarity: 'common', quantity: 1 },
-    { id: 'weapon_thief_dagger', name: 'Dague de voleur', type: 'weapon', attackBonus: 2, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 1, rarity: 'common', quantity: 1 },
-    { id: 'weapon_shadow_dagger', name: 'Dague de l ombre', type: 'weapon', attackBonus: 3, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 2, rarity: 'rare', quantity: 1 },
-    { id: 'weapon_short_sword_bronze', name: 'Epee courte en bronze', type: 'weapon', attackBonus: 2, defenseBonus: 0, strengthBonus: 2, rarity: 'common', quantity: 1 },
-    { id: 'weapon_short_sword_steel', name: 'Epee courte en acier', type: 'weapon', attackBonus: 4, defenseBonus: 0, strengthBonus: 4, perceptionBonus: 1, rarity: 'rare', quantity: 1 },
-    { id: 'weapon_oak_staff', name: 'Baton renforce', type: 'weapon', attackBonus: 2, defenseBonus: 1, strengthBonus: 1, intelligenceBonus: 1, magicBonus: 2, rarity: 'rare', quantity: 1 },
-    { id: 'weapon_hunter_bow', name: 'Arc de chasseur', type: 'weapon', attackBonus: 3, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 2, rarity: 'common', quantity: 1 },
-    { id: 'weapon_war_longbow', name: 'Grand arc de guerre', type: 'weapon', attackBonus: 5, defenseBonus: 0, strengthBonus: 3, perceptionBonus: 3, rarity: 'rare', quantity: 0 },
+    { id: 'weapon_iron_sword', name: 'Epee en fer', type: 'weapon', minDamage: 7, maxDamage: 11, damageBonus: 0, defenseBonus: 0, strengthBonus: 3, rarity: 'common', quantity: 1 },
+    { id: 'weapon_thief_dagger', name: 'Dague de voleur', type: 'weapon', minDamage: 4, maxDamage: 7, damageBonus: 0, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 1, rarity: 'common', quantity: 1 },
+    { id: 'weapon_shadow_dagger', name: 'Dague de l ombre', type: 'weapon', minDamage: 5, maxDamage: 8, damageBonus: 1, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 2, rarity: 'rare', quantity: 1 },
+    { id: 'weapon_short_sword_bronze', name: 'Epee courte en bronze', type: 'weapon', minDamage: 6, maxDamage: 9, damageBonus: 0, defenseBonus: 0, strengthBonus: 2, rarity: 'common', quantity: 1 },
+    { id: 'weapon_short_sword_steel', name: 'Epee courte en acier', type: 'weapon', minDamage: 7, maxDamage: 10, damageBonus: 1, defenseBonus: 0, strengthBonus: 4, perceptionBonus: 1, rarity: 'rare', quantity: 1 },
+    { id: 'weapon_oak_staff', name: 'Baton renforce', type: 'weapon', minDamage: 3, maxDamage: 6, damageBonus: 0, defenseBonus: 1, strengthBonus: 1, intelligenceBonus: 1, magicBonus: 2, rarity: 'rare', quantity: 1 },
+    { id: 'weapon_hunter_bow', name: 'Arc de chasseur', type: 'weapon', minDamage: 6, maxDamage: 9, damageBonus: 0, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 2, rarity: 'common', quantity: 1 },
+    { id: 'weapon_war_longbow', name: 'Grand arc de guerre', type: 'weapon', minDamage: 7, maxDamage: 11, damageBonus: 1, defenseBonus: 0, strengthBonus: 3, perceptionBonus: 3, rarity: 'rare', quantity: 0 },
     { id: 'ring_guard', name: 'Anneau de garde', type: 'ring', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, physicalResistanceBonus: 6, rarity: 'common', quantity: 2 },
-    { id: 'ring_rage', name: 'Anneau de rage', type: 'ring', attackBonus: 2, defenseBonus: 0, strengthBonus: 2, magicBonus: 1, rarity: 'rare', quantity: 1 },
+    { id: 'ring_rage', name: 'Anneau de rage', type: 'ring', damageBonus: 2, defenseBonus: 0, strengthBonus: 2, magicBonus: 1, rarity: 'rare', quantity: 1 },
     { id: 'armor_leather', name: 'Armure de cuir', type: 'armor', attackBonus: 0, defenseBonus: 2, vitalityBonus: 2, rarity: 'common', quantity: 1 },
     { id: 'armor_chain', name: 'Cotte de mailles', type: 'armor', attackBonus: 0, defenseBonus: 4, vitalityBonus: 4, physicalResistanceBonus: 10, rarity: 'epic', quantity: 1 },
     { id: 'shield_guard_rare', name: 'Bouclier de garde', type: 'offhand', defenseBonus: 1, vitalityBonus: 1, physicalResistanceBonus: 14, rarity: 'rare', quantity: 0 },
     { id: 'shield_bastion_epic', name: 'Bouclier bastion', type: 'offhand', defenseBonus: 2, vitalityBonus: 2, physicalResistanceBonus: 20, rarity: 'epic', quantity: 0 },
     { id: 'boots_traveler', name: 'Bottes de voyage', type: 'boots', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, perceptionBonus: 1, rarity: 'common', quantity: 1 },
-    { id: 'boots_scout', name: 'Bottes d eclaireur', type: 'boots', attackBonus: 1, defenseBonus: 1, strengthBonus: 1, perceptionBonus: 2, rarity: 'rare', quantity: 1 },
+    { id: 'boots_scout', name: 'Bottes d eclaireur', type: 'boots', damageBonus: 1, defenseBonus: 1, strengthBonus: 1, perceptionBonus: 2, rarity: 'rare', quantity: 1 },
     { id: 'potion_health', name: 'Potion de vie', type: 'consumable', consumableKind: 'health', healAmount: 35, rarity: 'common', quantity: 3 },
     { id: 'potion_mana', name: 'Potion de mana', type: 'consumable', consumableKind: 'mana', manaAmount: 25, rarity: 'common', quantity: 2 }
 ];
 
 const STARTING_EQUIPMENT_KITS = {
     Warrior: [
-        { id: 'starter_warrior_weapon', name: 'Epee d entrainement', type: 'weapon', attackBonus: 1, defenseBonus: 0, strengthBonus: 1, rarity: 'common' },
+        { id: 'starter_warrior_weapon', name: 'Epee d entrainement', type: 'weapon', minDamage: 6, maxDamage: 8, damageBonus: 0, defenseBonus: 0, strengthBonus: 1, rarity: 'common' },
         { id: 'starter_warrior_shield', name: 'Bouclier use', type: 'offhand', attackBonus: 0, defenseBonus: 0, physicalResistanceBonus: 10, rarity: 'common' },
         { id: 'starter_warrior_armor', name: 'Tunique de recrue', type: 'armor', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, rarity: 'common' },
         { id: 'starter_warrior_ring', name: 'Anneau de cuivre', type: 'ring', attackBonus: 0, defenseBonus: 0, rarity: 'common' },
         { id: 'starter_warrior_boots', name: 'Bottes usees', type: 'boots', attackBonus: 0, defenseBonus: 0, rarity: 'common' }
     ],
     Mage: [
-        { id: 'starter_mage_weapon', name: 'Baton d apprenti', type: 'weapon', attackBonus: 1, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, rarity: 'common' },
+        { id: 'starter_mage_weapon', name: 'Baton d apprenti', type: 'weapon', minDamage: 2, maxDamage: 4, damageBonus: 0, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, rarity: 'common' },
         { id: 'starter_mage_armor', name: 'Robe simple', type: 'armor', attackBonus: 0, defenseBonus: 0, rarity: 'common' },
         { id: 'starter_mage_ring', name: 'Anneau arcanique', type: 'ring', attackBonus: 0, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, manaRegenBonus: 5, rarity: 'rare' },
         { id: 'starter_mage_boots', name: 'Souliers souples', type: 'boots', attackBonus: 0, defenseBonus: 0, rarity: 'common' }
     ],
     Necromancer: [
-        { id: 'starter_necro_weapon', name: 'Baton ossifie', type: 'weapon', attackBonus: 1, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, rarity: 'common' },
+        { id: 'starter_necro_weapon', name: 'Baton ossifie', type: 'weapon', minDamage: 2, maxDamage: 4, damageBonus: 0, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, rarity: 'common' },
         { id: 'starter_necro_armor', name: 'Robe sombre', type: 'armor', attackBonus: 0, defenseBonus: 0, vitalityBonus: 1, rarity: 'common' },
         { id: 'starter_necro_ring', name: 'Anneau funebre', type: 'ring', attackBonus: 0, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, rarity: 'rare' },
         { id: 'starter_necro_boots', name: 'Bottes de crypte', type: 'boots', attackBonus: 0, defenseBonus: 0, rarity: 'common' }
     ],
     Druid: [
-        { id: 'starter_druid_weapon', name: 'Baton de frene', type: 'weapon', attackBonus: 1, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, rarity: 'common' },
+        { id: 'starter_druid_weapon', name: 'Baton de frene', type: 'weapon', minDamage: 2, maxDamage: 4, damageBonus: 0, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, rarity: 'common' },
         { id: 'starter_druid_armor', name: 'Robe de mousse', type: 'armor', attackBonus: 0, defenseBonus: 0, vitalityBonus: 1, rarity: 'common' },
         { id: 'starter_druid_ring', name: 'Anneau des clairieres', type: 'ring', attackBonus: 0, defenseBonus: 0, intelligenceBonus: 1, magicBonus: 1, rarity: 'rare' },
         { id: 'starter_druid_boots', name: 'Bottes de racines', type: 'boots', attackBonus: 0, defenseBonus: 0, rarity: 'common' }
     ],
     Archer: [
-        { id: 'starter_archer_weapon', name: 'Arc court use', type: 'weapon', attackBonus: 1, defenseBonus: 0, strengthBonus: 1, perceptionBonus: 1, rarity: 'common' },
+        { id: 'starter_archer_weapon', name: 'Arc court use', type: 'weapon', minDamage: 5, maxDamage: 7, damageBonus: 0, defenseBonus: 0, strengthBonus: 1, perceptionBonus: 1, rarity: 'common' },
         { id: 'starter_archer_armor', name: 'Gilet de cuir souple', type: 'armor', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, rarity: 'common' },
         { id: 'starter_archer_ring', name: 'Anneau de visee', type: 'ring', attackBonus: 0, defenseBonus: 0, perceptionBonus: 1, rarity: 'common' },
         { id: 'starter_archer_boots', name: 'Bottes de pisteur', type: 'boots', attackBonus: 0, defenseBonus: 0, vitalityBonus: 1, perceptionBonus: 1, rarity: 'common' }
     ],
     Rogue: [
-        { id: 'starter_rogue_weapon', name: 'Dague usee', type: 'weapon', attackBonus: 1, defenseBonus: 0, strengthBonus: 1, perceptionBonus: 1, rarity: 'common' },
+        { id: 'starter_rogue_weapon', name: 'Dague usee', type: 'weapon', minDamage: 3, maxDamage: 5, damageBonus: 0, defenseBonus: 0, strengthBonus: 1, perceptionBonus: 1, rarity: 'common' },
         { id: 'starter_rogue_armor', name: 'Veste de cuir fin', type: 'armor', attackBonus: 0, defenseBonus: 0, rarity: 'common' },
         { id: 'starter_rogue_ring', name: 'Anneau discret', type: 'ring', attackBonus: 0, defenseBonus: 0, perceptionBonus: 1, rarity: 'common' },
         { id: 'starter_rogue_boots', name: 'Bottes legeres', type: 'boots', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, perceptionBonus: 1, rarity: 'common' }
     ],
     default: [
-        { id: 'starter_generic_weapon', name: 'Arme basique', type: 'weapon', attackBonus: 0, defenseBonus: 0, rarity: 'common' },
+        { id: 'starter_generic_weapon', name: 'Arme basique', type: 'weapon', minDamage: 4, maxDamage: 6, damageBonus: 0, defenseBonus: 0, rarity: 'common' },
         { id: 'starter_generic_armor', name: 'Tenue basique', type: 'armor', attackBonus: 0, defenseBonus: 0, rarity: 'common' },
         { id: 'starter_generic_ring', name: 'Anneau basique', type: 'ring', attackBonus: 0, defenseBonus: 0, rarity: 'common' },
         { id: 'starter_generic_boots', name: 'Bottes basiques', type: 'boots', attackBonus: 0, defenseBonus: 0, rarity: 'common' }
@@ -114,13 +114,13 @@ let characterEntityIdCounter = 1;
 let generatedInventoryItemCounter = 1;
 const MAX_CHARACTER_NAME_LENGTH = 24;
 const CLASS_BASE_STATS = {
-    Warrior: { health: 100, mana: 50, attack: 9, defense: 5 },
-    Rogue: { health: 80, mana: 50, attack: 7, defense: 3 },
-    Archer: { health: 84, mana: 50, attack: 8, defense: 3 },
-    Mage: { health: 60, mana: 50, attack: 5, defense: 2 },
-    Necromancer: { health: 64, mana: 58, attack: 5, defense: 2 },
-    Druid: { health: 58, mana: 62, attack: 5, defense: 2 },
-    default: { health: 100, mana: 50, attack: 9, defense: 5 }
+    Warrior: { health: 100, mana: 50, defense: 5 },
+    Rogue: { health: 80, mana: 50, defense: 3 },
+    Archer: { health: 84, mana: 50, defense: 3 },
+    Mage: { health: 60, mana: 50, defense: 2 },
+    Necromancer: { health: 64, mana: 58, defense: 2 },
+    Druid: { health: 58, mana: 62, defense: 2 },
+    default: { health: 100, mana: 50, defense: 5 }
 };
 const CLASS_XP_PER_LEVEL = {
     Warrior: 120,
@@ -151,6 +151,23 @@ const COLD_NUMB_DEFAULT_TURNS = 2;
 const BURN_DEFAULT_TURNS = 2;
 const SKILL_RANK_POWER_BONUS = 0.12;
 const ARCHER_BOSS_MONSTER_TYPES = new Set(['green_slime', 'ice_golem', 'fire_golem', 'spectral_knight', 'spider_queen']);
+const DEFAULT_WEAPON_DAMAGE_RANGE_BY_FAMILY = {
+    sword: { minDamage: 7, maxDamage: 11 },
+    short_sword: { minDamage: 6, maxDamage: 9 },
+    dagger: { minDamage: 4, maxDamage: 7 },
+    bow: { minDamage: 6, maxDamage: 10 },
+    staff: { minDamage: 3, maxDamage: 6 },
+    unknown: { minDamage: 5, maxDamage: 8 }
+};
+const DEFAULT_UNARMED_DAMAGE_RANGE_BY_CLASS = {
+    Warrior: { minDamage: 2, maxDamage: 4 },
+    Rogue: { minDamage: 2, maxDamage: 3 },
+    Archer: { minDamage: 1, maxDamage: 3 },
+    Mage: { minDamage: 1, maxDamage: 2 },
+    Necromancer: { minDamage: 1, maxDamage: 2 },
+    Druid: { minDamage: 1, maxDamage: 2 },
+    default: { minDamage: 1, maxDamage: 2 }
+};
 const CLASS_WEAPON_FAMILIES = {
     Warrior: null,
     Rogue: new Set(['dagger', 'short_sword']),
@@ -383,6 +400,21 @@ const DAMAGE_RESISTANCE_CONFIG = [
     { type: 'ice', bonusField: 'iceResistanceBonus', label: 'Res Glace' },
     { type: 'poison', bonusField: 'poisonResistanceBonus', label: 'Res Poison' }
 ];
+const ELEMENTAL_WEAPON_DAMAGE_CONFIG = [
+    { type: 'fire', bonusField: 'fireDamageBonus', label: 'Degats Feu', combatLabel: 'feu' },
+    { type: 'ice', bonusField: 'iceDamageBonus', label: 'Degats Glace', combatLabel: 'glace' },
+    { type: 'poison', bonusField: 'poisonDamageBonus', label: 'Degats Poison', combatLabel: 'poison' }
+];
+const ELEMENTAL_WEAPON_LOOT_BONUS_CHANCE_BY_RARITY = {
+    common: 0.06,
+    rare: 0.09,
+    epic: 0.13
+};
+const ELEMENTAL_WEAPON_LOOT_DAMAGE_RANGE_BY_RARITY = {
+    common: { min: 2, max: 4 },
+    rare: { min: 3, max: 6 },
+    epic: { min: 4, max: 8 }
+};
 const DAMAGE_TYPE_ALIASES_LOCAL = {
     physical: 'physical',
     physique: 'physical',
@@ -483,17 +515,78 @@ function getItemPrimaryStatBonuses(item) {
             magicBonus: 0
         };
     }
-
-    const hasExplicitStrengthBonus = typeof item.strengthBonus === 'number' && Number.isFinite(item.strengthBonus);
-    const hasExplicitVitalityBonus = typeof item.vitalityBonus === 'number' && Number.isFinite(item.vitalityBonus);
-
     return {
-        // Backward compatibility: old attack/defense bonuses now fuel primary stats.
-        strengthBonus: Math.floor(hasExplicitStrengthBonus ? item.strengthBonus : (item.attackBonus || 0)),
+        // Attack/Defense bonuses are handled directly by applyItemBonuses.
+        strengthBonus: Math.floor(item.strengthBonus || 0),
         intelligenceBonus: Math.floor(item.intelligenceBonus || 0),
-        vitalityBonus: Math.floor(hasExplicitVitalityBonus ? item.vitalityBonus : (item.defenseBonus || 0)),
+        vitalityBonus: Math.floor(item.vitalityBonus || 0),
         perceptionBonus: Math.floor(item.perceptionBonus || 0),
         magicBonus: Math.floor(item.magicBonus || 0)
+    };
+}
+
+function normalizeItemDamageValue(rawValue, fallbackValue = 0, minimumValue = 0) {
+    const numericValue = Number(rawValue);
+    if (!Number.isFinite(numericValue)) {
+        return Math.max(minimumValue, Math.floor(Number(fallbackValue) || 0));
+    }
+    return Math.max(minimumValue, Math.floor(numericValue));
+}
+
+function isWeaponDamageItem(item) {
+    if (!item || typeof item !== 'object') {
+        return false;
+    }
+    if (item.type === 'weapon') {
+        return true;
+    }
+    if (item.type !== 'offhand') {
+        return false;
+    }
+    return getOffhandFamily(item) !== 'shield';
+}
+
+function getItemDamageBonus(item) {
+    const source = item && typeof item === 'object' ? item : {};
+    return normalizeItemDamageValue(source.damageBonus, source.attackBonus, 0);
+}
+
+function getDefaultWeaponDamageRangeForItem(item) {
+    if (!item || typeof item !== 'object') {
+        return { ...DEFAULT_WEAPON_DAMAGE_RANGE_BY_FAMILY.unknown };
+    }
+    const family = getWeaponFamily(item);
+    const range = DEFAULT_WEAPON_DAMAGE_RANGE_BY_FAMILY[family] || DEFAULT_WEAPON_DAMAGE_RANGE_BY_FAMILY.unknown;
+    return { ...range };
+}
+
+function getItemWeaponDamageRange(item) {
+    if (!isWeaponDamageItem(item)) {
+        return { minDamage: 0, maxDamage: 0 };
+    }
+    const defaultRange = getDefaultWeaponDamageRangeForItem(item);
+    const minDamage = normalizeItemDamageValue(item.minDamage, defaultRange.minDamage, 1);
+    const maxDamage = normalizeItemDamageValue(item.maxDamage, defaultRange.maxDamage, minDamage);
+    return {
+        minDamage: Math.min(minDamage, maxDamage),
+        maxDamage: Math.max(minDamage, maxDamage)
+    };
+}
+
+function buildItemWeaponDamageFields(item) {
+    const range = getItemWeaponDamageRange(item);
+    return {
+        minDamage: range.minDamage,
+        maxDamage: range.maxDamage,
+        damageBonus: getItemDamageBonus(item)
+    };
+}
+
+function getUnarmedDamageRangeForClass(classType) {
+    const entry = DEFAULT_UNARMED_DAMAGE_RANGE_BY_CLASS[classType] || DEFAULT_UNARMED_DAMAGE_RANGE_BY_CLASS.default;
+    return {
+        minDamage: normalizeItemDamageValue(entry.minDamage, 1, 1),
+        maxDamage: normalizeItemDamageValue(entry.maxDamage, 2, 1)
     };
 }
 
@@ -534,6 +627,22 @@ function normalizeItemResistanceBonusValue(rawValue) {
     return Math.round(numericValue);
 }
 
+function createEmptyElementalWeaponDamageMap() {
+    return {
+        fire: 0,
+        ice: 0,
+        poison: 0
+    };
+}
+
+function normalizeItemElementalDamageBonusValue(rawValue) {
+    const numericValue = Number(rawValue);
+    if (!Number.isFinite(numericValue)) {
+        return 0;
+    }
+    return Math.max(0, Math.round(numericValue));
+}
+
 function getItemDamageResistanceBonuses(item) {
     const source = item && typeof item === 'object' ? item : {};
     const mapSource = source.damageResistances && typeof source.damageResistances === 'object'
@@ -561,6 +670,86 @@ function buildItemDamageResistanceBonusFields(item) {
         fireResistanceBonus: bonuses.fireResistanceBonus,
         iceResistanceBonus: bonuses.iceResistanceBonus,
         poisonResistanceBonus: bonuses.poisonResistanceBonus
+    };
+}
+
+function getItemElementalDamageBonuses(item) {
+    const source = item && typeof item === 'object' ? item : {};
+    const mapSource = source.elementalDamage && typeof source.elementalDamage === 'object'
+        ? source.elementalDamage
+        : {};
+    const mappedElementalDamage = createEmptyElementalWeaponDamageMap();
+    Object.entries(mapSource).forEach(([rawType, rawValue]) => {
+        const normalizedType = getNormalizedDamageType(rawType);
+        if (!Object.prototype.hasOwnProperty.call(mappedElementalDamage, normalizedType)) {
+            return;
+        }
+        mappedElementalDamage[normalizedType] += normalizeItemElementalDamageBonusValue(rawValue);
+    });
+    return {
+        fireDamageBonus: normalizeItemElementalDamageBonusValue((source.fireDamageBonus || 0) + (mappedElementalDamage.fire || 0)),
+        iceDamageBonus: normalizeItemElementalDamageBonusValue((source.iceDamageBonus || 0) + (mappedElementalDamage.ice || 0)),
+        poisonDamageBonus: normalizeItemElementalDamageBonusValue((source.poisonDamageBonus || 0) + (mappedElementalDamage.poison || 0))
+    };
+}
+
+function buildItemElementalDamageBonusFields(item) {
+    const bonuses = getItemElementalDamageBonuses(item);
+    return {
+        fireDamageBonus: bonuses.fireDamageBonus,
+        iceDamageBonus: bonuses.iceDamageBonus,
+        poisonDamageBonus: bonuses.poisonDamageBonus
+    };
+}
+
+function rollRandomElementalWeaponBonusValueForRarity(rarity) {
+    const normalizedRarity = normalizeItemRarity(rarity);
+    const range = ELEMENTAL_WEAPON_LOOT_DAMAGE_RANGE_BY_RARITY[normalizedRarity] || ELEMENTAL_WEAPON_LOOT_DAMAGE_RANGE_BY_RARITY.common;
+    const min = Math.max(1, Math.floor(Number(range.min) || 1));
+    const max = Math.max(min, Math.floor(Number(range.max) || min));
+    return min + Math.floor(Math.random() * ((max - min) + 1));
+}
+
+function maybeCreateElementalWeaponLootItem(baseItem) {
+    if (!baseItem || typeof baseItem !== 'object' || baseItem.type !== 'weapon') {
+        return null;
+    }
+    const currentBonuses = getItemElementalDamageBonuses(baseItem);
+    const hasExistingElementalBonus = ELEMENTAL_WEAPON_DAMAGE_CONFIG.some((entry) => (
+        Math.max(0, Math.floor(Number(currentBonuses[entry.bonusField]) || 0)) > 0
+    ));
+    if (hasExistingElementalBonus) {
+        return null;
+    }
+
+    const normalizedRarity = normalizeItemRarity(baseItem.rarity);
+    const chance = Number(ELEMENTAL_WEAPON_LOOT_BONUS_CHANCE_BY_RARITY[normalizedRarity] || ELEMENTAL_WEAPON_LOOT_BONUS_CHANCE_BY_RARITY.common);
+    const clampedChance = Math.max(0, Math.min(1, chance));
+    if (Math.random() > clampedChance) {
+        return null;
+    }
+
+    const bonusType = ELEMENTAL_WEAPON_DAMAGE_CONFIG[Math.floor(Math.random() * ELEMENTAL_WEAPON_DAMAGE_CONFIG.length)];
+    if (!bonusType) {
+        return null;
+    }
+    const rolledBonus = rollRandomElementalWeaponBonusValueForRarity(normalizedRarity);
+    if (rolledBonus <= 0) {
+        return null;
+    }
+
+    const elementalFields = {
+        fireDamageBonus: currentBonuses.fireDamageBonus,
+        iceDamageBonus: currentBonuses.iceDamageBonus,
+        poisonDamageBonus: currentBonuses.poisonDamageBonus
+    };
+    elementalFields[bonusType.bonusField] += rolledBonus;
+
+    return {
+        ...baseItem,
+        ...elementalFields,
+        rarity: normalizedRarity,
+        excludeFromDropPool: true
     };
 }
 
@@ -723,7 +912,6 @@ class Character {
         this.baseMaxHealth = classBaseStats.health;
         this.maxHealth = this.baseMaxHealth + this.getVitalityHealthBonus();
         this.health = this.maxHealth;
-        this.attack = classBaseStats.attack;
         this.defense = classBaseStats.defense;
         this.equipment = {
             weapon: null,
@@ -774,7 +962,44 @@ class Character {
     }
 
     getCurrentAttack() {
-        return Math.max(1, this.attack - this.attackWeakenAmount);
+        const range = this.getCurrentWeaponDamageRange();
+        const averageWeaponDamage = Math.round((range.minDamage + range.maxDamage) / 2);
+        const weaknessPenalty = this.hasAttackWeakness() ? Math.max(0, Math.floor(this.attackWeakenAmount || 0)) : 0;
+        return Math.max(1, averageWeaponDamage + this.getFlatDamageBonusFromEquipment() - weaknessPenalty);
+    }
+
+    getFlatDamageBonusFromEquipment() {
+        const equipmentItems = [this.equipment.weapon, this.equipment.offhand, this.equipment.ring, this.equipment.armor, this.equipment.boots];
+        return equipmentItems.reduce((total, item) => total + getItemDamageBonus(item), 0);
+    }
+
+    getCurrentWeaponDamageRange() {
+        const weapon = this.equipment.weapon;
+        if (!isWeaponDamageItem(weapon)) {
+            return getUnarmedDamageRangeForClass(this.classType);
+        }
+        const range = getItemWeaponDamageRange(weapon);
+        if (range.minDamage <= 0 || range.maxDamage <= 0) {
+            return getUnarmedDamageRangeForClass(this.classType);
+        }
+        return range;
+    }
+
+    rollWeaponDamageBase(modifier = 0) {
+        const range = this.getCurrentWeaponDamageRange();
+        const minDamage = Math.max(1, Math.floor(Number(range.minDamage) || 1));
+        const maxDamage = Math.max(minDamage, Math.floor(Number(range.maxDamage) || minDamage));
+        const rolledDamage = minDamage + Math.floor(Math.random() * ((maxDamage - minDamage) + 1));
+        const weaknessPenalty = this.hasAttackWeakness() ? Math.max(0, Math.floor(this.attackWeakenAmount || 0)) : 0;
+        const modifiedDamage = rolledDamage + this.getFlatDamageBonusFromEquipment() + Math.floor(Number(modifier) || 0) - weaknessPenalty;
+        return Math.max(1, modifiedDamage);
+    }
+
+    getWeaponDamageSummaryText() {
+        const range = this.getCurrentWeaponDamageRange();
+        const flatBonus = this.getFlatDamageBonusFromEquipment();
+        const bonusText = flatBonus > 0 ? ` (+${flatBonus})` : '';
+        return `${range.minDamage}-${range.maxDamage}${bonusText}`;
     }
 
     hasAttackWeakness() {
@@ -1155,9 +1380,7 @@ class Character {
             return `${this.name} n'a pas de cible valide pour l'enchainement.`;
         }
 
-        const currentAttack = this.getCurrentAttack();
-        const baseDamage = Math.max(1, currentAttack + 4);
-        const rawDamage = this.scalePhysicalDamage(baseDamage, 'Coup de mort');
+        const rawDamage = this.rollPhysicalWeaponDamage('Coup de mort', 4);
         const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
         const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
         const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
@@ -1235,6 +1458,21 @@ class Character {
         this.usedSkeletonSummonThisTurn = this.skeletonSummonCooldownTurns > 0;
     }
 
+    resetSkillCooldownsAfterCombat() {
+        this.assomerCooldownTurns = 0;
+        this.usedAssomerThisTurn = false;
+        this.coupDeMortCooldownTurns = 0;
+        this.usedCoupDeMortThisTurn = false;
+        this.backstabCooldownTurns = 0;
+        this.usedBackstabThisTurn = false;
+        this.targetedShotCooldownTurns = 0;
+        this.usedTargetedShotThisTurn = false;
+        this.skeletonSummonCooldownTurns = 0;
+        this.usedSkeletonSummonThisTurn = false;
+        this.pendingCoupDeMortFollowUp = false;
+        this.pendingAssassinationFollowUp = false;
+    }
+
     getVitalityHealthBonus() {
         return Math.max(0, this.vitality * 2);
     }
@@ -1244,7 +1482,7 @@ class Character {
     }
 
     getBaseStrengthDamageMultiplier() {
-        return 1 + (Math.max(0, this.strength) * 0.01);
+        return 1 + (Math.max(0, this.strength) * 0.02);
     }
 
     getStrengthDamageMultiplier() {
@@ -1399,9 +1637,13 @@ class Character {
         return Math.max(1, Math.round(scaledValue));
     }
 
+    rollPhysicalWeaponDamage(action = '', baseModifier = 0) {
+        const weaponBaseDamage = this.rollWeaponDamageBase(baseModifier);
+        return this.scalePhysicalDamage(weaponBaseDamage, action);
+    }
+
     scaleSpellDamage(baseValue, action = '') {
-        const combinedMultiplier = this.getBaseStrengthDamageMultiplier()
-            * this.getMagicDamageMultiplier()
+        const combinedMultiplier = this.getMagicDamageMultiplier()
             * this.getOutgoingDamageMultiplier()
             * this.getSkillPowerMultiplier(action);
         return Math.max(1, Math.round(baseValue * combinedMultiplier));
@@ -1416,9 +1658,8 @@ class Character {
     }
 
     getBackstabSuccessChance(monster = null) {
-        const currentAttack = this.getCurrentAttack();
         const safePerception = Math.max(0, Math.floor(this.perception || 0));
-        const baseChance = 0.15 + (currentAttack * 0.01) + (safePerception * 0.015);
+        const baseChance = 0.15 + (safePerception * 0.025);
         const isTargetStunned = Boolean(
             monster
             && (
@@ -1440,6 +1681,22 @@ class Character {
             || action === 'Attaque ciblee'
             || action === 'Fleche perforante'
             || action === 'Fleche empoisonnee';
+    }
+
+    isActionUsingWeaponElementalBonus(action = '') {
+        if (this.isArcherArrowAction(action)) {
+            return true;
+        }
+        return action === 'Attaquer'
+            || action === 'Coup d epee'
+            || action === 'Frappe heroique'
+            || action === 'Coup devastateur'
+            || action === 'Attaque au baton'
+            || action === 'Coup de baton'
+            || action === 'Backstab'
+            || action === 'Frappe de l ombre'
+            || action === 'Pluie de lames'
+            || action === 'Attaque rapide';
     }
 
     isMonsterSlowedForArcherPassives(monster = null) {
@@ -1508,8 +1765,8 @@ class Character {
         return Math.max(0, Math.min(0.95, Number(penetration) || 0));
     }
 
-    scaleArcherArrowDamage(baseDamage, action = '', monster = null) {
-        const rawDamage = this.scalePhysicalDamage(baseDamage, action);
+    scaleArcherArrowDamage(baseDamageModifier = 0, action = '', monster = null) {
+        const rawDamage = this.rollPhysicalWeaponDamage(action, baseDamageModifier);
         if (!this.isArcherArrowAction(action)) {
             return rawDamage;
         }
@@ -1566,6 +1823,26 @@ class Character {
             return false;
         }
         return getWeaponFamily(mainWeapon) === 'dagger' && getWeaponFamily(offhandWeapon) === 'dagger';
+    }
+
+    getWeaponElementalDamageBonuses() {
+        const totalBonuses = {
+            fireDamageBonus: 0,
+            iceDamageBonus: 0,
+            poisonDamageBonus: 0
+        };
+        const applyItemBonuses = (item) => {
+            if (!item || typeof item !== 'object') {
+                return;
+            }
+            const bonuses = getItemElementalDamageBonuses(item);
+            totalBonuses.fireDamageBonus += Math.max(0, Math.floor(Number(bonuses.fireDamageBonus) || 0));
+            totalBonuses.iceDamageBonus += Math.max(0, Math.floor(Number(bonuses.iceDamageBonus) || 0));
+            totalBonuses.poisonDamageBonus += Math.max(0, Math.floor(Number(bonuses.poisonDamageBonus) || 0));
+        };
+        applyItemBonuses(this.equipment.weapon);
+        applyItemBonuses(this.equipment.offhand);
+        return totalBonuses;
     }
 
     getAttackWeaknessText() {
@@ -1842,6 +2119,42 @@ class Character {
         const markAssassinationOnCriticalKill = (targetMonster, criticalCount = 0) => {
             this.markAssassinationFollowUpIfEligible(targetMonster, criticalCount);
         };
+        const applyWeaponElementalBonusDamage = (usedAction = action, targetMonster = monster) => {
+            if (!this.isActionUsingWeaponElementalBonus(usedAction)) {
+                return '';
+            }
+            if (!targetMonster || typeof targetMonster.takeDamage !== 'function') {
+                return '';
+            }
+            if (typeof targetMonster.isAlive === 'function' && !targetMonster.isAlive()) {
+                return '';
+            }
+
+            const bonusMap = this.getWeaponElementalDamageBonuses();
+            const appliedParts = [];
+            ELEMENTAL_WEAPON_DAMAGE_CONFIG.forEach((entry) => {
+                const bonusValue = Math.max(0, Math.floor(Number(bonusMap[entry.bonusField]) || 0));
+                if (bonusValue <= 0) {
+                    return;
+                }
+                if (typeof targetMonster.isAlive === 'function' && !targetMonster.isAlive()) {
+                    return;
+                }
+                const bonusDamage = targetMonster.takeDamage(bonusValue, {
+                    damageType: entry.type,
+                    ignoreArmor: true
+                });
+                if (bonusDamage <= 0) {
+                    return;
+                }
+                appliedParts.push(`${bonusDamage} ${entry.combatLabel}`);
+            });
+
+            if (appliedParts.length === 0) {
+                return '';
+            }
+            return ` Degats elementaires: ${appliedParts.join(', ')}.`;
+        };
 
         if (!monster || !monster.isAlive()) {
             // For non-attack actions, monster may be null. Only return for attack actions.
@@ -1876,15 +2189,15 @@ class Character {
         }
 
         if (action === 'Coup d epee') {
-            const baseDamage = Math.max(1, currentAttack);
-            const rawDamage = this.scalePhysicalDamage(baseDamage, action);
+            const rawDamage = this.rollPhysicalWeaponDamage(action, 0);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             const contactEffectText = applyWeaponContactEffects();
             playMeleeHitSound(0.9);
-            return `${this.name} frappe avec une epee pour ${damage} degats.${criticalText}${contactEffectText}`;
+            return `${this.name} frappe avec une epee pour ${damage} degats.${criticalText}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Provocation') {
@@ -1919,15 +2232,15 @@ class Character {
         }
 
         if (action === 'Frappe heroique') {
-            const baseDamage = Math.max(1, currentAttack + 8);
-            const rawDamage = this.scalePhysicalDamage(baseDamage, action);
+            const rawDamage = this.rollPhysicalWeaponDamage(action, 8);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             const contactEffectText = applyWeaponContactEffects();
             playMeleeHitSound(0.94);
-            return `${this.name} declenche Frappe heroique et inflige ${damage} degats.${criticalText}${contactEffectText}`;
+            return `${this.name} declenche Frappe heroique et inflige ${damage} degats.${criticalText}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Garde du fer') {
@@ -1938,8 +2251,7 @@ class Character {
         }
 
         if (action === 'Coup devastateur') {
-            const baseDamage = Math.max(1, currentAttack + 12);
-            const rawDamage = this.scalePhysicalDamage(baseDamage, action);
+            const rawDamage = this.rollPhysicalWeaponDamage(action, 12);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
@@ -1950,9 +2262,10 @@ class Character {
                 monster.applyStun(1);
                 stunText = ' La cible est etourdie 1 tour.';
             }
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             const contactEffectText = applyWeaponContactEffects();
             playMeleeHitSound(0.98);
-            return `${this.name} assene un Coup devastateur pour ${damage} degats.${stunText}${criticalText}${contactEffectText}`;
+            return `${this.name} assene un Coup devastateur pour ${damage} degats.${stunText}${criticalText}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Magic Missile') {
@@ -1960,7 +2273,7 @@ class Character {
                 return `${this.name} n'a pas assez de mana.`;
             }
             this.mana -= 10;
-            const baseDamage = Math.max(1, currentAttack + 5);
+            const baseDamage = 10;
             const rawDamage = this.scaleSpellDamage(baseDamage, action);
             const damage = monster.takeDamage(rawDamage, { damageType: 'magic' });
             playSpellCastSound();
@@ -1972,7 +2285,7 @@ class Character {
                 return `${this.name} n'a pas assez de mana pour Boule de feu.`;
             }
             this.mana -= 20;
-            const baseDamage = Math.max(1, currentAttack + 12);
+            const baseDamage = 16;
             const rawDamage = this.scaleSpellDamage(baseDamage, action);
             const damage = monster.takeDamage(rawDamage, { damageType: 'fire' });
             const burnDamage = this.scaleSpellDamage(4, action);
@@ -1989,7 +2302,7 @@ class Character {
                 return `${this.name} n'a pas assez de mana pour Lance de glace.`;
             }
             this.mana -= manaCost;
-            const baseDamage = Math.max(1, currentAttack + 8);
+            const baseDamage = 12;
             const rawDamage = this.scaleSpellDamage(baseDamage, action);
             const damage = monster.takeDamage(rawDamage, { damageType: 'ice' });
             const freezeChance = 0.35;
@@ -2008,27 +2321,27 @@ class Character {
         }
 
         if (action === 'Attaque au baton') {
-            const baseDamage = Math.max(1, currentAttack + 2);
-            const rawDamage = this.scalePhysicalDamage(baseDamage, action);
+            const rawDamage = this.rollPhysicalWeaponDamage(action, 2);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             const contactEffectText = applyWeaponContactEffects();
             playMeleeHitSound(0.86);
-            return `${this.name} frappe au baton pour ${damage} degats.${criticalText}${contactEffectText}`;
+            return `${this.name} frappe au baton pour ${damage} degats.${criticalText}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Coup de baton') {
-            const baseDamage = Math.max(1, currentAttack + 2);
-            const rawDamage = this.scalePhysicalDamage(baseDamage, action);
+            const rawDamage = this.rollPhysicalWeaponDamage(action, 2);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             const contactEffectText = applyWeaponContactEffects();
             playMeleeHitSound(0.86);
-            return `${this.name} donne un coup de baton pour ${damage} degats.${criticalText}${contactEffectText}`;
+            return `${this.name} donne un coup de baton pour ${damage} degats.${criticalText}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Invocation de squelette') {
@@ -2073,7 +2386,7 @@ class Character {
                 return `${this.name} n'a pas assez de mana pour Drain de vie.`;
             }
             this.mana -= manaCost;
-            const baseDamage = Math.max(1, currentAttack + 6);
+            const baseDamage = 12;
             const rawDamage = this.scaleSpellDamage(baseDamage, action);
             const damage = monster.takeDamage(rawDamage, { damageType: 'magic', ignoreArmor: true });
             const expectedHeal = Math.max(1, Math.round(damage * 0.6));
@@ -2109,7 +2422,7 @@ class Character {
                 return `${this.name} n'a pas assez de mana pour Malediction funeste.`;
             }
             this.mana -= manaCost;
-            const baseDamage = Math.max(1, currentAttack + 4);
+            const baseDamage = 10;
             const rawDamage = this.scaleSpellDamage(baseDamage, action);
             const damage = monster.takeDamage(rawDamage, { damageType: 'magic' });
             const weakenAmount = this.scaleMagicSpellPower(7, 2, action);
@@ -2186,15 +2499,16 @@ class Character {
                 return `${this.name} tente Backstab sur ${monster.name}, mais echoue (${percent}% de chance).`;
             }
 
-            const baseDamage = Math.max(1, (currentAttack + 7) * 3);
+            const baseDamage = Math.max(1, this.rollWeaponDamageBase(7) * 3);
             const rawDamage = this.scalePhysicalDamage(baseDamage, action);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             const contactEffectText = applyWeaponContactEffects();
             playMeleeHitSound(0.9);
-            return `${this.name} reussit Backstab et inflige ${damage} degats.${criticalText}${contactEffectText}`;
+            return `${this.name} reussit Backstab et inflige ${damage} degats.${criticalText}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Evasion') {
@@ -2205,19 +2519,19 @@ class Character {
         }
 
         if (action === 'Frappe de l ombre') {
-            const baseDamage = Math.max(1, currentAttack + 6);
-            const rawDamage = this.scalePhysicalDamage(baseDamage, action);
+            const rawDamage = this.rollPhysicalWeaponDamage(action, 6);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             const contactEffectText = applyWeaponContactEffects();
             playMeleeHitSound(0.9);
-            return `${this.name} execute Frappe de l ombre et inflige ${damage} degats.${criticalText}${contactEffectText}`;
+            return `${this.name} execute Frappe de l ombre et inflige ${damage} degats.${criticalText}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Pluie de lames') {
-            const firstRawDamage = this.scalePhysicalDamage(Math.max(1, currentAttack + 1), action);
+            const firstRawDamage = this.rollPhysicalWeaponDamage(action, 1);
             const firstOutcome = this.rollPhysicalCriticalDamage(firstRawDamage);
             const firstDamage = monster.takeDamage(firstOutcome.damage, { damageType: 'physical' });
             const contactEffectText = applyWeaponContactEffects();
@@ -2225,9 +2539,10 @@ class Character {
             markAssassinationOnCriticalKill(monster, criticalCount);
             playMeleeHitSound(0.9);
             if (!monster.isAlive()) {
-                return `${this.name} dechaine Pluie de lames et inflige ${firstDamage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
+                const elementalText = applyWeaponElementalBonusDamage(action, monster);
+                return `${this.name} dechaine Pluie de lames et inflige ${firstDamage} degats.${this.getCriticalHitText(criticalCount)}${elementalText}${contactEffectText}`;
             }
-            const secondRawDamage = this.scalePhysicalDamage(Math.max(1, currentAttack + 1), action);
+            const secondRawDamage = this.rollPhysicalWeaponDamage(action, 1);
             const secondOutcome = this.rollPhysicalCriticalDamage(secondRawDamage);
             const secondDamage = monster.takeDamage(secondOutcome.damage, { damageType: 'physical' });
             if (secondOutcome.isCritical) {
@@ -2235,20 +2550,22 @@ class Character {
             }
             markAssassinationOnCriticalKill(monster, criticalCount);
             if (!monster.isAlive()) {
-                return `${this.name} dechaine Pluie de lames et inflige ${firstDamage} + ${secondDamage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
+                const elementalText = applyWeaponElementalBonusDamage(action, monster);
+                return `${this.name} dechaine Pluie de lames et inflige ${firstDamage} + ${secondDamage} degats.${this.getCriticalHitText(criticalCount)}${elementalText}${contactEffectText}`;
             }
-            const thirdRawDamage = this.scalePhysicalDamage(Math.max(1, currentAttack + 1), action);
+            const thirdRawDamage = this.rollPhysicalWeaponDamage(action, 1);
             const thirdOutcome = this.rollPhysicalCriticalDamage(thirdRawDamage);
             const thirdDamage = monster.takeDamage(thirdOutcome.damage, { damageType: 'physical' });
             if (thirdOutcome.isCritical) {
                 criticalCount += 1;
             }
             markAssassinationOnCriticalKill(monster, criticalCount);
-            return `${this.name} dechaine Pluie de lames et inflige ${firstDamage} + ${secondDamage} + ${thirdDamage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
+            return `${this.name} dechaine Pluie de lames et inflige ${firstDamage} + ${secondDamage} + ${thirdDamage} degats.${this.getCriticalHitText(criticalCount)}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Attaque rapide') {
-            const firstRawDamage = this.scalePhysicalDamage(Math.max(1, currentAttack - 1), action);
+            const firstRawDamage = this.rollPhysicalWeaponDamage(action, -1);
             const firstOutcome = this.rollPhysicalCriticalDamage(firstRawDamage);
             const damage = monster.takeDamage(firstOutcome.damage, { damageType: 'physical' });
             const contactEffectText = applyWeaponContactEffects();
@@ -2257,30 +2574,33 @@ class Character {
             playMeleeHitSound(0.88);
             if (this.classType === 'Rogue' && this.isDualWieldingDaggers()) {
                 if (!monster.isAlive()) {
-                    return `${this.name} attaque rapidement avec deux dagues et inflige ${damage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
+                    const elementalText = applyWeaponElementalBonusDamage(action, monster);
+                    return `${this.name} attaque rapidement avec deux dagues et inflige ${damage} degats.${this.getCriticalHitText(criticalCount)}${elementalText}${contactEffectText}`;
                 }
-                const secondRawDamage = this.scalePhysicalDamage(Math.max(1, currentAttack - 1), action);
+                const secondRawDamage = this.rollPhysicalWeaponDamage(action, -1);
                 const secondOutcome = this.rollPhysicalCriticalDamage(secondRawDamage);
                 const secondDamage = monster.takeDamage(secondOutcome.damage, { damageType: 'physical' });
                 if (secondOutcome.isCritical) {
                     criticalCount += 1;
                 }
                 markAssassinationOnCriticalKill(monster, criticalCount);
-                return `${this.name} attaque rapidement avec deux dagues et inflige ${damage} + ${secondDamage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
+                const elementalText = applyWeaponElementalBonusDamage(action, monster);
+                return `${this.name} attaque rapidement avec deux dagues et inflige ${damage} + ${secondDamage} degats.${this.getCriticalHitText(criticalCount)}${elementalText}${contactEffectText}`;
             }
-            return `${this.name} attaque rapidement pour ${damage} degats.${this.getCriticalHitText(criticalCount)}${contactEffectText}`;
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
+            return `${this.name} attaque rapidement pour ${damage} degats.${this.getCriticalHitText(criticalCount)}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Attaque normale') {
-            const baseDamage = Math.max(1, currentAttack);
-            const rawDamage = this.scaleArcherArrowDamage(baseDamage, action, monster);
+            const rawDamage = this.scaleArcherArrowDamage(0, action, monster);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damageContext = this.buildArcherArrowDamageContext(action);
             const damage = monster.takeDamage(criticalOutcome.damage, damageContext);
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             playMeleeHitSound(0.82);
-            return `${this.name} tire une fleche et inflige ${damage} degats.${criticalText}`;
+            return `${this.name} tire une fleche et inflige ${damage} degats.${criticalText}${elementalText}`;
         }
 
         if (action === 'Attaque ciblee') {
@@ -2288,13 +2608,13 @@ class Character {
                 return `${this.name} ne peut pas encore utiliser Attaque ciblee (${this.targetedShotCooldownTurns} tours restants).`;
             }
             this.setTargetedShotCooldown(2);
-            const baseDamage = Math.max(1, currentAttack + 2);
-            const rawDamage = this.scaleArcherArrowDamage(baseDamage, action, monster);
+            const rawDamage = this.scaleArcherArrowDamage(2, action, monster);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damageContext = this.buildArcherArrowDamageContext(action);
             const damage = monster.takeDamage(criticalOutcome.damage, damageContext);
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             const markBonus = 0.35;
             const markTurns = 2;
             let markText = '';
@@ -2311,29 +2631,29 @@ class Character {
                 markText = ` Cible marquee: +${appliedPercent}% degats subis (${appliedTurns} ${turnLabel}).`;
             }
             playMeleeHitSound(0.83);
-            return `${this.name} ajuste une Attaque ciblee et inflige ${damage} degats.${criticalText}${markText}`;
+            return `${this.name} ajuste une Attaque ciblee et inflige ${damage} degats.${criticalText}${elementalText}${markText}`;
         }
 
         if (action === 'Fleche perforante') {
-            const baseDamage = Math.max(1, currentAttack + 6);
-            const rawDamage = this.scaleArcherArrowDamage(baseDamage, action, monster);
+            const rawDamage = this.scaleArcherArrowDamage(6, action, monster);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damageContext = this.buildArcherArrowDamageContext(action, { ignoreArmor: true });
             const damage = monster.takeDamage(criticalOutcome.damage, damageContext);
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             playMeleeHitSound(0.86);
-            return `${this.name} transperce ${monster.name} avec une Fleche perforante pour ${damage} degats.${criticalText}`;
+            return `${this.name} transperce ${monster.name} avec une Fleche perforante pour ${damage} degats.${criticalText}${elementalText}`;
         }
 
         if (action === 'Fleche empoisonnee') {
-            const baseDamage = Math.max(1, currentAttack + 3);
-            const rawDamage = this.scaleArcherArrowDamage(baseDamage, action, monster);
+            const rawDamage = this.scaleArcherArrowDamage(3, action, monster);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damageContext = this.buildArcherArrowDamageContext(action);
             const damage = monster.takeDamage(criticalOutcome.damage, damageContext);
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            const elementalText = applyWeaponElementalBonusDamage(action, monster);
             let poisonText = '';
             if (
                 monster
@@ -2349,17 +2669,18 @@ class Character {
                 poisonText = ` Empoisonnement: ${Math.max(1, Math.floor(Number(appliedPoison && appliedPoison.damage) || poisonDamage))} degats/tour pendant ${appliedTurns} ${turnLabel}.`;
             }
             playMeleeHitSound(0.84);
-            return `${this.name} tire une Fleche empoisonnee et inflige ${damage} degats.${criticalText}${poisonText}`;
+            return `${this.name} tire une Fleche empoisonnee et inflige ${damage} degats.${criticalText}${elementalText}${poisonText}`;
         }
 
-        const rawDamage = this.scalePhysicalDamage(Math.max(1, currentAttack), action);
+        const rawDamage = this.rollPhysicalWeaponDamage(action, 0);
         const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
         const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
         const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
         markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+        const elementalText = applyWeaponElementalBonusDamage(action, monster);
         const contactEffectText = applyWeaponContactEffects();
         playMeleeHitSound(0.9);
-        return `${this.name} attaque pour ${damage} degats.${criticalText}${contactEffectText}`;
+        return `${this.name} attaque pour ${damage} degats.${criticalText}${elementalText}${contactEffectText}`;
     }
 
     getXpPerLevel() {
@@ -2493,12 +2814,14 @@ class Character {
     applyItemBonuses(item, multiplier) {
         const statBonuses = getItemPrimaryStatBonuses(item);
         const resistanceBonuses = getItemDamageResistanceBonuses(item);
+        const defenseDelta = Math.floor(item.defenseBonus || 0) * multiplier;
         const strengthDelta = statBonuses.strengthBonus * multiplier;
         const intelligenceDelta = statBonuses.intelligenceBonus * multiplier;
         const vitalityDelta = statBonuses.vitalityBonus * multiplier;
         const perceptionDelta = statBonuses.perceptionBonus * multiplier;
         const magicDelta = statBonuses.magicBonus * multiplier;
 
+        this.defense = Math.max(0, this.defense + defenseDelta);
         this.strength += strengthDelta;
         this.intelligence += intelligenceDelta;
         this.vitality += vitalityDelta;
@@ -2641,7 +2964,9 @@ function equipStartingEquipment(character) {
             perceptionBonus: template.perceptionBonus || 0,
             magicBonus: template.magicBonus || 0,
             manaRegenBonus: template.manaRegenBonus || 0,
+            ...buildItemWeaponDamageFields(template),
             ...buildItemDamageResistanceBonusFields(template),
+            ...buildItemElementalDamageBonusFields(template),
             rarity: normalizeItemRarity(template.rarity)
         };
         const eligibility = canCharacterEquipItem(character, starterItem);
@@ -2667,6 +2992,19 @@ function formatItemBonuses(item) {
     const bonuses = [];
     const statBonuses = getItemPrimaryStatBonuses(item);
     const resistanceBonuses = getItemDamageResistanceBonuses(item);
+    const elementalDamageBonuses = getItemElementalDamageBonuses(item);
+    const damageBonus = getItemDamageBonus(item);
+    const weaponRange = getItemWeaponDamageRange(item);
+    const defenseBonus = Math.floor(Number(item.defenseBonus) || 0);
+    if (weaponRange.minDamage > 0 && weaponRange.maxDamage > 0) {
+        bonuses.push(`Degats ${weaponRange.minDamage}-${weaponRange.maxDamage}`);
+    }
+    if (damageBonus !== 0) {
+        bonuses.push(`${damageBonus >= 0 ? '+' : ''}${damageBonus} Degats`);
+    }
+    if (defenseBonus !== 0) {
+        bonuses.push(`${defenseBonus >= 0 ? '+' : ''}${defenseBonus} Defense`);
+    }
     if (statBonuses.strengthBonus) {
         bonuses.push(`+${statBonuses.strengthBonus} Force`);
     }
@@ -2691,6 +3029,13 @@ function formatItemBonuses(item) {
             return;
         }
         bonuses.push(`${entry.label} ${formatSignedPercent(value)}`);
+    });
+    ELEMENTAL_WEAPON_DAMAGE_CONFIG.forEach((entry) => {
+        const value = Math.max(0, Math.floor(Number(elementalDamageBonuses[entry.bonusField]) || 0));
+        if (value <= 0) {
+            return;
+        }
+        bonuses.push(`+${value} ${entry.label}`);
     });
     if (item.healAmount) {
         bonuses.push(`+${item.healAmount} PV`);
@@ -2830,7 +3175,9 @@ function takeItemFromInventory(itemId) {
         perceptionBonus: stack.perceptionBonus || 0,
         magicBonus: stack.magicBonus || 0,
         manaRegenBonus: stack.manaRegenBonus || 0,
+        ...buildItemWeaponDamageFields(stack),
         ...buildItemDamageResistanceBonusFields(stack),
+        ...buildItemElementalDamageBonusFields(stack),
         consumableKind: stack.consumableKind || '',
         healAmount: stack.healAmount || 0,
         manaAmount: stack.manaAmount || 0,
@@ -2888,7 +3235,9 @@ function returnItemToInventory(item) {
         perceptionBonus: item.perceptionBonus || 0,
         magicBonus: item.magicBonus || 0,
         manaRegenBonus: item.manaRegenBonus || 0,
+        ...buildItemWeaponDamageFields(item),
         ...buildItemDamageResistanceBonusFields(item),
+        ...buildItemElementalDamageBonusFields(item),
         consumableKind: item.consumableKind || '',
         healAmount: item.healAmount || 0,
         manaAmount: item.manaAmount || 0,
@@ -2916,7 +3265,9 @@ function getInventoryDropPool() {
         perceptionBonus: stack.perceptionBonus || 0,
         magicBonus: stack.magicBonus || 0,
         manaRegenBonus: stack.manaRegenBonus || 0,
+        ...buildItemWeaponDamageFields(stack),
         ...buildItemDamageResistanceBonusFields(stack),
+        ...buildItemElementalDamageBonusFields(stack),
         consumableKind: stack.consumableKind || '',
         healAmount: stack.healAmount || 0,
         manaAmount: stack.manaAmount || 0,
@@ -2943,7 +3294,9 @@ function addItemToPartyInventory(itemId) {
         perceptionBonus: stack.perceptionBonus || 0,
         magicBonus: stack.magicBonus || 0,
         manaRegenBonus: stack.manaRegenBonus || 0,
+        ...buildItemWeaponDamageFields(stack),
         ...buildItemDamageResistanceBonusFields(stack),
+        ...buildItemElementalDamageBonusFields(stack),
         consumableKind: stack.consumableKind || '',
         healAmount: stack.healAmount || 0,
         manaAmount: stack.manaAmount || 0,
@@ -2977,7 +3330,9 @@ function addGeneratedItemToPartyInventory(item, options = {}) {
             perceptionBonus: existingStack.perceptionBonus || 0,
             magicBonus: existingStack.magicBonus || 0,
             manaRegenBonus: existingStack.manaRegenBonus || 0,
+            ...buildItemWeaponDamageFields(existingStack),
             ...buildItemDamageResistanceBonusFields(existingStack),
+            ...buildItemElementalDamageBonusFields(existingStack),
             consumableKind: existingStack.consumableKind || '',
             healAmount: existingStack.healAmount || 0,
             manaAmount: existingStack.manaAmount || 0,
@@ -3001,7 +3356,9 @@ function addGeneratedItemToPartyInventory(item, options = {}) {
         perceptionBonus: Math.floor(item.perceptionBonus || 0),
         magicBonus: Math.floor(item.magicBonus || 0),
         manaRegenBonus: Math.floor(item.manaRegenBonus || 0),
+        ...buildItemWeaponDamageFields(item),
         ...buildItemDamageResistanceBonusFields(item),
+        ...buildItemElementalDamageBonusFields(item),
         consumableKind: item.consumableKind || '',
         healAmount: Math.floor(item.healAmount || 0),
         manaAmount: Math.floor(item.manaAmount || 0),
@@ -3025,7 +3382,9 @@ function addGeneratedItemToPartyInventory(item, options = {}) {
         perceptionBonus: stack.perceptionBonus || 0,
         magicBonus: stack.magicBonus || 0,
         manaRegenBonus: stack.manaRegenBonus || 0,
+        ...buildItemWeaponDamageFields(stack),
         ...buildItemDamageResistanceBonusFields(stack),
+        ...buildItemElementalDamageBonusFields(stack),
         consumableKind: stack.consumableKind || '',
         healAmount: stack.healAmount || 0,
         manaAmount: stack.manaAmount || 0,
@@ -3320,7 +3679,7 @@ function renderInventoryCharacterHeader(char, characterIndex) {
                 <div class="inventory-stat-grid">
                     <div class="inventory-stat"><span>Niveau</span><strong>${char.level}</strong></div>
                     <div class="inventory-stat"><span>XP</span><strong>${typeof char.getExperienceProgressText === 'function' ? char.getExperienceProgressText() : `${char.experience}/100`}</strong></div>
-                    <div class="inventory-stat"><span>Attaque</span><strong>${char.getCurrentAttack()}</strong></div>
+                    <div class="inventory-stat"><span>Degats arme</span><strong>${typeof char.getWeaponDamageSummaryText === 'function' ? char.getWeaponDamageSummaryText() : '-'}</strong></div>
                     <div class="inventory-stat"><span>Defense</span><strong>${char.defense}</strong></div>
                     <div class="inventory-stat"><span>Force</span><strong>${char.strength}</strong></div>
                     <div class="inventory-stat"><span>Intelligence</span><strong>${char.intelligence}</strong></div>

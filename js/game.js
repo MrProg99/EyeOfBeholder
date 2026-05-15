@@ -150,6 +150,10 @@ const NECRO_SOUL_THEFT_PASSIVE_ID = 'necro_obscur';
 const NECRO_SOUL_THEFT_HEALTH_GAIN = 5;
 const NECRO_SOUL_THEFT_MANA_GAIN = 10;
 const BOSS_RELIC_STAT_FIELDS = {
+    minDamage: 'minDamage',
+    maxDamage: 'maxDamage',
+    damageBonus: 'damageBonus',
+    defense: 'defenseBonus',
     strength: 'strengthBonus',
     intelligence: 'intelligenceBonus',
     vitality: 'vitalityBonus',
@@ -228,12 +232,15 @@ const BOSS_RELIC_DEFINITIONS = {
         rarity: 'epic',
         names: ['Lame des lamentations', 'Espadon du voile spectral', 'Tranchant des ames perdues'],
         guaranteed: {
+            minDamage: 7,
+            maxDamage: 11,
             strength: 4,
             vitality: 4,
             perception: 2,
             magicResistance: 16
         },
         randomRanges: [
+            { stat: 'damageBonus', min: 1, max: 3 },
             { stat: 'strength', min: 2, max: 4 },
             { stat: 'vitality', min: 2, max: 4 },
             { stat: 'magic', min: 1, max: 3 },
@@ -650,9 +657,6 @@ function buildBackstabActionHint(character) {
         return '';
     }
 
-    const currentAttack = typeof character.getCurrentAttack === 'function'
-        ? Math.max(1, Math.floor(character.getCurrentAttack()))
-        : Math.max(1, Math.floor(Number(character.attack) || 0));
     const safePerception = Math.max(0, Math.floor(Number(character.perception) || 0));
     const backstabRank = typeof character.getSkillRank === 'function'
         ? Math.max(0, Math.floor(character.getSkillRank('rogue_backstab')))
@@ -661,7 +665,7 @@ function buildBackstabActionHint(character) {
     const chanceWithoutStun = character.getBackstabSuccessChance(null);
     const chanceWithStun = character.getBackstabSuccessChance({ stunnedTurns: 1 });
 
-    return `Chance sans etourdissement: ${formatRateAsPercent(chanceWithoutStun)} | Chance cible etourdie: ${formatRateAsPercent(chanceWithStun)} | Att: ${currentAttack}, Per: ${safePerception}, Rang: ${backstabRank} | Formule: 15% + 1% Att + 1.5% Per + ${rankBonusPercent}% rang +20% si cible etourdie`;
+    return `Chance sans etourdissement: ${formatRateAsPercent(chanceWithoutStun)} | Chance cible etourdie: ${formatRateAsPercent(chanceWithStun)} | Per: ${safePerception}, Rang: ${backstabRank} | Formule: 15% + 2.5% Per + ${rankBonusPercent}% rang +20% si cible etourdie`;
 }
 
 function buildCombatActionHint(action, manaCost = 0, disabledReason = '', character = null) {
@@ -1710,6 +1714,9 @@ function buildBossRelicItem(bossType) {
         type: definition.type || 'ring',
         rarity: definition.rarity || 'rare',
         attackBonus: 0,
+        minDamage: 0,
+        maxDamage: 0,
+        damageBonus: 0,
         defenseBonus: 0,
         strengthBonus: 0,
         intelligenceBonus: 0,
@@ -2251,6 +2258,11 @@ function startCombat() {
 function endCombat() {
     inCombat = false;
     stopCombatMusic();
+    characters.forEach((char) => {
+        if (char && typeof char.resetSkillCooldownsAfterCombat === 'function') {
+            char.resetSkillCooldownsAfterCombat();
+        }
+    });
     currentMonsters = [];
     summonedAllies = [];
     combatTurnOrder = [];
@@ -2259,6 +2271,7 @@ function endCombat() {
     clearMonsterTurnTimeout();
     setMovementEnabled(true);
     document.getElementById('combat-modal').style.display = 'none';
+    updateCharacterUI();
     syncDungeonMapMusic();
     checkLevelUps();
     saveGameProgressIfPossible('end-combat');
@@ -3407,7 +3420,6 @@ function castRainOfFire(activeChar) {
     if (typeof window.playRandomSpellCast === 'function') {
         window.playRandomSpellCast({ volume: 0.78 });
     }
-    const casterAttack = typeof activeChar.getCurrentAttack === 'function' ? activeChar.getCurrentAttack() : activeChar.attack;
     const spellDamageScaler = typeof activeChar.scaleSpellDamage === 'function'
         ? activeChar.scaleSpellDamage.bind(activeChar)
         : (value) => value;
@@ -3415,7 +3427,7 @@ function castRainOfFire(activeChar) {
     const burnTurns = 2;
     // Damage to each monster
     aliveMonsters.forEach(m => {
-        const rawDamage = spellDamageScaler(Math.max(1, casterAttack + 6), 'Pluie de feu');
+        const rawDamage = spellDamageScaler(12, 'Pluie de feu');
         const damage = m.takeDamage(rawDamage, { damageType: 'fire' });
         let burnText = '';
         if (
@@ -4062,6 +4074,47 @@ function handleVictory() {
     endCombat();
 }
 
+function getLootItemDisplayName(item) {
+    if (!item) {
+        return 'Objet inconnu';
+    }
+    if (typeof formatItemNameWithBonuses === 'function') {
+        return formatItemNameWithBonuses(item);
+    }
+    return item.name || 'Objet';
+}
+
+function addLootItemToParty(baseItem, options = {}) {
+    if (!baseItem || typeof baseItem !== 'object') {
+        return null;
+    }
+    const idPrefix = options && typeof options.idPrefix === 'string' ? options.idPrefix : 'loot';
+    const canRollElementalWeaponBonus = baseItem.type === 'weapon'
+        && typeof maybeCreateElementalWeaponLootItem === 'function'
+        && typeof addGeneratedItemToPartyInventory === 'function';
+
+    if (canRollElementalWeaponBonus) {
+        const elementalWeapon = maybeCreateElementalWeaponLootItem(baseItem);
+        if (elementalWeapon) {
+            const generatedItem = addGeneratedItemToPartyInventory(
+                {
+                    ...elementalWeapon,
+                    id: ''
+                },
+                { idPrefix: `${idPrefix}_${baseItem.id || 'weapon'}_element` }
+            );
+            if (generatedItem) {
+                return generatedItem;
+            }
+        }
+    }
+
+    if (typeof addItemToPartyInventory !== 'function' || !baseItem.id) {
+        return null;
+    }
+    return addItemToPartyInventory(baseItem.id);
+}
+
 function grantLootFromDefeatedMonsters(defeatedMonsters) {
     const lootedItems = [];
     const room = typeof dungeon.getCurrentRoom === 'function' ? dungeon.getCurrentRoom() : null;
@@ -4097,7 +4150,7 @@ function grantLootFromDefeatedMonsters(defeatedMonsters) {
             return;
         }
         const randomItem = equipmentDropPool[Math.floor(Math.random() * equipmentDropPool.length)];
-        const addedItem = addItemToPartyInventory(randomItem.id);
+        const addedItem = addLootItemToParty(randomItem, { idPrefix: 'monster_loot' });
         if (addedItem) {
             lootedItems.push(addedItem);
         }
@@ -4105,7 +4158,7 @@ function grantLootFromDefeatedMonsters(defeatedMonsters) {
 
     if (potionDropPool.length > 0 && Math.random() < POTION_DROP_CHANCE) {
         const randomPotion = potionDropPool[Math.floor(Math.random() * potionDropPool.length)];
-        const addedPotion = addItemToPartyInventory(randomPotion.id);
+        const addedPotion = addLootItemToParty(randomPotion, { idPrefix: 'monster_potion' });
         if (addedPotion) {
             lootedItems.push(addedPotion);
         }
@@ -4119,7 +4172,7 @@ function grantLootFromDefeatedMonsters(defeatedMonsters) {
     const groupedLoot = {};
     lootedItems.forEach((item) => {
         const rarity = rarityLabels[item.rarity] || 'Commun';
-        const key = `[${rarity}] ${item.name}`;
+        const key = `[${rarity}] ${getLootItemDisplayName(item)}`;
         groupedLoot[key] = (groupedLoot[key] || 0) + 1;
     });
 
@@ -4311,7 +4364,7 @@ function grantChestLootReward() {
         return null;
     }
 
-    return addItemToPartyInventory(reward.id);
+    return addLootItemToParty(reward, { idPrefix: 'chest_loot' });
 }
 
 function getRogueChestOpenChance(rogue) {
@@ -4341,7 +4394,7 @@ function resolveRogueChestAttempt(rogue, openChance) {
     if (Math.random() <= openChance) {
         const addedItem = grantChestLootReward();
         if (addedItem) {
-            logMessage(`${rogue.name} crochete le coffre et trouve ${addedItem.name}.`);
+            logMessage(`${rogue.name} crochete le coffre et trouve ${getLootItemDisplayName(addedItem)}.`);
         } else {
             logMessage(`${rogue.name} ouvre le coffre, mais il est vide.`);
         }
@@ -4379,7 +4432,7 @@ function resolveChestBruteForceAttempt(character) {
 
     const addedItem = grantChestLootReward();
     if (addedItem) {
-        logMessage(`${character.name} force le coffre et recupere ${addedItem.name}.`);
+        logMessage(`${character.name} force le coffre et recupere ${getLootItemDisplayName(addedItem)}.`);
     } else {
         logMessage(`${character.name} ouvre le coffre, mais il est vide.`);
     }
@@ -4396,7 +4449,7 @@ function openPerceptionChestModal(perceptionScore) {
     if (!modal || !description || !options) {
         const fallbackReward = grantChestLootReward();
         if (fallbackReward) {
-            logMessage(`Vous ouvrez le coffre et trouvez ${fallbackReward.name}.`);
+            logMessage(`Vous ouvrez le coffre et trouvez ${getLootItemDisplayName(fallbackReward)}.`);
             updateCharacterUI();
         } else {
             logMessage('Le coffre est ancien et vide.');

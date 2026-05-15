@@ -79,7 +79,7 @@ const MONSTER_DATA = {
         id: 'green_slime',
         name: 'Slime verte',
         isBoss: true,
-        health: 68,
+        health: 78,
         attack: 8,
         defense: 2,
         role: 'green_slime',
