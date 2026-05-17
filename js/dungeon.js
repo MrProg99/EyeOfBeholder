@@ -8,6 +8,11 @@ const ASCENT_MAP_ROW_MERGE_CHANCE = 0.24;
 const ASCENT_MAP_EXTRA_LINK_CHANCE = 0.42;
 const ASCENT_MAP_EXTRA_LINK_MAX_DISTANCE = 2;
 const ASCENT_MAP_PREGENERATED_FLOORS = 10;
+const ASCENT_RED_ROOM_MIN_FLOOR = 2;
+const ASCENT_RED_ROOM_BASE_CHANCE = 0.12;
+const ASCENT_RED_ROOM_FLOOR_STEP_CHANCE = 0.03;
+const ASCENT_RED_ROOM_MAX_CHANCE = 0.4;
+const ASCENT_FORCE_RED_ROOM_ON_FIRST_FLOOR = true;
 const ASCENT_MONSTER_COUNT_TIER_ONE_MAX_FLOOR = 3;
 const ASCENT_MONSTER_COUNT_TIER_TWO_MAX_FLOOR = 6;
 const ASCENT_NODE_TYPES = Object.freeze({
@@ -66,6 +71,21 @@ class Dungeon {
         return Math.max(min, Math.min(max, numericCount));
     }
 
+    getRedRoomChanceForFloor(floorIndex) {
+        const floorNumber = Math.max(1, Math.floor(Number(floorIndex) || 0) + 1);
+        if (floorNumber < ASCENT_RED_ROOM_MIN_FLOOR) {
+            return 0;
+        }
+        const extraFloors = floorNumber - ASCENT_RED_ROOM_MIN_FLOOR;
+        const rawChance = ASCENT_RED_ROOM_BASE_CHANCE + (extraFloors * ASCENT_RED_ROOM_FLOOR_STEP_CHANCE);
+        return Math.max(0, Math.min(ASCENT_RED_ROOM_MAX_CHANCE, rawChance));
+    }
+
+    shouldCreateRedRoomForFloor(floorIndex) {
+        const chance = this.getRedRoomChanceForFloor(floorIndex);
+        return chance > 0 && Math.random() < chance;
+    }
+
     createRoomNode(options = {}) {
         const row = Math.max(0, Math.floor(Number(options.y) || 0));
         const col = Math.max(0, Math.floor(Number(options.x) || 0));
@@ -83,6 +103,7 @@ class Dungeon {
             nodeType,
             monsterCount: Math.max(0, Math.floor(Number(options.monsterCount) || 0)),
             forcedMonsterType: typeof options.forcedMonsterType === 'string' ? options.forcedMonsterType : '',
+            isRedRoom: Boolean(options.isRedRoom),
             hasStairs: false,
             linksUp: [],
             linksDown: [],
@@ -281,6 +302,9 @@ class Dungeon {
                 const nodeType = isTopRow
                     ? ASCENT_NODE_TYPES.BOSS
                     : (isRestRow ? ASCENT_NODE_TYPES.REST : ASCENT_NODE_TYPES.MONSTER);
+                const isRedRoom = nodeType === ASCENT_NODE_TYPES.MONSTER
+                    && !isStartRow
+                    && this.shouldCreateRedRoomForFloor(floorIndex);
                 const monsterCount = nodeType === ASCENT_NODE_TYPES.MONSTER
                     ? this.rollMonsterCountForFloor(floorIndex)
                     : (isTopRow ? 1 : 0);
@@ -291,6 +315,7 @@ class Dungeon {
                     nodeType,
                     monsterCount,
                     forcedMonsterType: isTopRow ? bossType : '',
+                    isRedRoom,
                     available: isStartRow,
                     entered: false,
                     cleared: false
@@ -304,6 +329,24 @@ class Dungeon {
             }
             roomsByRow.push(rowNodes);
             nodes.push(...rowNodes);
+        }
+
+        if (ASCENT_FORCE_RED_ROOM_ON_FIRST_FLOOR && floorIndex === 0) {
+            const existingRedRoom = nodes.some((room) => room && room.nodeType === ASCENT_NODE_TYPES.MONSTER && room.isRedRoom);
+            if (!existingRedRoom) {
+                const candidates = nodes.filter((room) => (
+                    room
+                    && room.nodeType === ASCENT_NODE_TYPES.MONSTER
+                    && room.row > 0
+                ));
+                const fallbackCandidates = candidates.length > 0
+                    ? candidates
+                    : nodes.filter((room) => room && room.nodeType === ASCENT_NODE_TYPES.MONSTER);
+                if (fallbackCandidates.length > 0) {
+                    const forcedIndex = Math.floor(Math.random() * fallbackCandidates.length);
+                    fallbackCandidates[forcedIndex].isRedRoom = true;
+                }
+            }
         }
 
         const linkRooms = (fromRoom, toRoom) => {

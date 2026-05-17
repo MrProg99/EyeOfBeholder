@@ -73,6 +73,20 @@ const POTION_DROP_CHANCE = 0.15;
 const SHAMAN_ENCOUNTER_CHANCE = 0.3;
 const KOBOLD_WARBAND_ENCOUNTER_CHANCE = 0.24;
 const MAX_MONSTERS_IN_COMBAT = 8;
+const RED_ROOM_XP_MULTIPLIER = 1.25;
+const RED_ROOM_HEALTH_MULTIPLIER = 1.2;
+const RED_ROOM_ATTACK_MULTIPLIER = 1.15;
+const RED_ROOM_DEFENSE_MULTIPLIER = 1.1;
+const RED_ROOM_EXTRA_DAMAGE_FIELDS = [
+    'infernalSparkDamage',
+    'deathExplosionFireDamage',
+    'deathCryDamage',
+    'poisonCloudDamage',
+    'poisonCloudInfectionDamage',
+    'lifeDrainDamage',
+    'weaponContactFireDamage',
+    'weaponContactBurnDamage'
+];
 const INITIAL_REST_RATIONS = 3;
 const SAVE_STORAGE_KEY = 'eye_of_beholder_save_v1';
 const SAVE_SCHEMA_VERSION = 2;
@@ -1668,12 +1682,65 @@ function getRoomTypeDisplayLabel(room) {
         return 'Repos';
     }
     if (room.type === 'monster') {
-        return 'Combat';
+        return room.isRedRoom ? 'Combat rouge' : 'Combat';
     }
     if (room.type === 'empty' && room.cleared) {
         return 'Termine';
     }
     return 'Exploration';
+}
+
+function isRedMonsterRoom(room) {
+    return Boolean(room && room.type === 'monster' && room.isRedRoom);
+}
+
+function getMonsterExperienceValue(monster) {
+    if (!monster || typeof monster !== 'object') {
+        return 0;
+    }
+    const explicitValue = Number(monster.baseExperienceValue);
+    if (Number.isFinite(explicitValue) && explicitValue > 0) {
+        return Math.max(1, Math.floor(explicitValue));
+    }
+    return Math.max(0, Math.floor(Number(monster.maxHealth) || 0));
+}
+
+function applyRedRoomMonsterModifiers(monster) {
+    if (!monster || typeof monster !== 'object') {
+        return monster;
+    }
+    if (monster.redRoomEnhanced) {
+        return monster;
+    }
+
+    const originalMaxHealth = Math.max(1, Math.floor(Number(monster.maxHealth) || Number(monster.health) || 1));
+    monster.baseExperienceValue = originalMaxHealth;
+    monster.maxHealth = Math.max(1, Math.round(originalMaxHealth * RED_ROOM_HEALTH_MULTIPLIER));
+    monster.health = monster.maxHealth;
+    monster.attack = Math.max(1, Math.round((Number(monster.attack) || 1) * RED_ROOM_ATTACK_MULTIPLIER));
+    monster.defense = Math.max(0, Math.round((Number(monster.defense) || 0) * RED_ROOM_DEFENSE_MULTIPLIER));
+
+    RED_ROOM_EXTRA_DAMAGE_FIELDS.forEach((fieldName) => {
+        const rawValue = Number(monster[fieldName]);
+        if (!Number.isFinite(rawValue) || rawValue <= 0) {
+            return;
+        }
+        monster[fieldName] = Math.max(1, Math.round(rawValue * RED_ROOM_ATTACK_MULTIPLIER));
+    });
+
+    monster.redRoomEnhanced = true;
+    return monster;
+}
+
+function createMonsterForRoom(room, forcedType = null, overrides = {}) {
+    const monster = createMonster(forcedType, overrides);
+    if (!monster) {
+        return monster;
+    }
+    if (isRedMonsterRoom(room)) {
+        return applyRedRoomMonsterModifiers(monster);
+    }
+    return monster;
 }
 
 function normalizeMapTileImagePath(imagePath) {
@@ -1833,31 +1900,46 @@ function updateUI() {
             : Math.max(1, Math.floor(room.monsterCount || 0) || 1);
         room.monsterCount = count;
         currentMonsters = [];
+        const redRoomActive = isRedMonsterRoom(room);
 
         const forcedMonsterType = typeof room.forcedMonsterType === 'string' ? room.forcedMonsterType : '';
         if (forcedMonsterType) {
             if (forcedMonsterType === 'kobold_warband') {
                 const warband = createKoboldWarbandEncounter();
+                if (redRoomActive) {
+                    warband.forEach((monster) => {
+                        if (monster) {
+                            applyRedRoomMonsterModifiers(monster);
+                        }
+                    });
+                }
                 currentMonsters.push(...warband);
                 room.monsterCount = currentMonsters.length;
             } else {
                 for (let i = 0; i < count; i += 1) {
-                    currentMonsters.push(createMonster(forcedMonsterType));
+                    currentMonsters.push(createMonsterForRoom(room, forcedMonsterType));
                 }
             }
         } else {
             const hasKoboldWarband = Math.random() < KOBOLD_WARBAND_ENCOUNTER_CHANCE;
             if (hasKoboldWarband) {
                 const warband = createKoboldWarbandEncounter();
+                if (redRoomActive) {
+                    warband.forEach((monster) => {
+                        if (monster) {
+                            applyRedRoomMonsterModifiers(monster);
+                        }
+                    });
+                }
                 currentMonsters.push(...warband);
                 room.monsterCount = currentMonsters.length;
             } else {
                 const hasShaman = Math.random() < SHAMAN_ENCOUNTER_CHANCE;
                 if (hasShaman) {
-                    currentMonsters.push(createMonster('shaman'));
+                    currentMonsters.push(createMonsterForRoom(room, 'shaman'));
                 }
                 while (currentMonsters.length < count) {
-                    currentMonsters.push(createMonster());
+                    currentMonsters.push(createMonsterForRoom(room));
                 }
                 // Randomize order so the shaman is not always first
                 for (let i = currentMonsters.length - 1; i > 0; i--) {
@@ -1865,6 +1947,9 @@ function updateUI() {
                     [currentMonsters[i], currentMonsters[j]] = [currentMonsters[j], currentMonsters[i]];
                 }
             }
+        }
+        if (redRoomActive) {
+            logMessage('Salle rouge detectee: combat plus difficile, bonus d experience +25%.');
         }
         const names = currentMonsters.map(m => m.name).join(', ');
         logMessage(`${currentMonsters.length} monstre(s) apparaissent: ${names}`);
@@ -4958,8 +5043,11 @@ function showCombatSummaryModal(summaryData) {
 function handleVictory() {
     const defeatedMonsters = [...currentMonsters];
     logMessage(`Tous les monstres sont vaincus!`);
-
-    const xp = currentMonsters.reduce((sum, monster) => sum + (monster.maxHealth || 0), 0);
+    const combatRoom = typeof dungeon.getCurrentRoom === 'function' ? dungeon.getCurrentRoom() : null;
+    const redRoomVictory = isRedMonsterRoom(combatRoom);
+    const baseXp = currentMonsters.reduce((sum, monster) => sum + getMonsterExperienceValue(monster), 0);
+    const xpMultiplier = redRoomVictory ? RED_ROOM_XP_MULTIPLIER : 1;
+    const xp = Math.max(0, Math.round(baseXp * xpMultiplier));
     const aliveCharacters = getAliveCharacters();
     const xpByCharacter = Array.isArray(characters)
         ? characters.filter((char) => Boolean(char)).map((char) => ({
@@ -4974,6 +5062,9 @@ function handleVictory() {
     const xpByCharacterIndex = new Map(xpByCharacter.map((entry) => [entry.entityId, entry]));
 
     if (xp > 0 && aliveCharacters.length > 0) {
+        if (redRoomVictory) {
+            logMessage(`Salle rouge: bonus d experience +25% (${baseXp} -> ${xp} XP).`);
+        }
         logMessage(`Experience gagnee: ${xp} XP par personnage vivant.`);
     }
     aliveCharacters.forEach((char) => {
@@ -5286,6 +5377,9 @@ function updateMap() {
             }
             if (room.type === 'monster') {
                 roomDiv.classList.add('monster');
+                if (room.isRedRoom) {
+                    roomDiv.classList.add('red-room');
+                }
             }
             if (room.nodeType === 'rest' || room.type === 'rest') {
                 roomDiv.classList.add('rest');
@@ -5387,6 +5481,9 @@ function updateMap() {
             }
             if (room.type === 'monster') {
                 roomDiv.classList.add('monster');
+                if (room.isRedRoom) {
+                    roomDiv.classList.add('red-room');
+                }
                 if (typeof room.monsterCount === 'number' && room.monsterCount > 0) {
                     roomDiv.textContent = String(room.monsterCount);
                 }
