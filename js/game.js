@@ -75,9 +75,11 @@ const KOBOLD_WARBAND_ENCOUNTER_CHANCE = 0.24;
 const MAX_MONSTERS_IN_COMBAT = 8;
 const INITIAL_REST_RATIONS = 3;
 const SAVE_STORAGE_KEY = 'eye_of_beholder_save_v1';
-const SAVE_SCHEMA_VERSION = 1;
+const SAVE_SCHEMA_VERSION = 2;
 let availableRestRations = INITIAL_REST_RATIONS;
 const MONSTER_TURN_VISUAL_DELAY_MS = 1500;
+const ASCENT_MAP_CELL_SIZE_PX = 92;
+const MAP_CONNECTION_SVG_NS = 'http://www.w3.org/2000/svg';
 const PERCEPTION_EVENT_BASE_CHANCE = 0.05;
 const PERCEPTION_EVENT_PER_POINT = 0.0125;
 const PERCEPTION_EVENT_MAX_CHANCE = 0.7;
@@ -100,13 +102,17 @@ const MONSTER_PORTRAITS = {
     Shaman: 'Images/Shaman.png',
     Kobold: 'Images/Kobold.png',
     'Chef kobold': 'Images/ChefKobold.png',
+    'Imp des tenebres': 'Images/ImpTenebre.png',
+    Cultiste: 'Images/Cultiste.png',
+    'Spectre mineur': 'Images/SpectreMineur.png',
     'Slime verte': 'Images/SlimeVerte.png',
     'Golem de glace': 'Images/GolemGlace.png',
     'Golem de feu': 'Images/GolemFeu.png',
     'Chevalier spectrale': 'Images/ChevalierSpectrale.png',
     'Reine araignee': 'Images/ReineAraignee.png',
     Araignee: 'Images/Spider.png',
-    'Bebe araignee': 'Images/Spider.png'
+    'Bebe araignee': 'Images/Spider.png',
+    'Squelette invoque': 'Images/Skelette.png'
 };
 const pendingDamageHighlights = {
     characters: new Set(),
@@ -118,9 +124,15 @@ const pendingDamageValues = {
     monsters: new Map(),
     summons: new Map()
 };
+let combatPerformanceStats = null;
+let pendingCombatSummaryResult = null;
+if (typeof window !== 'undefined') {
+    window.__combatDamageSource = null;
+}
 let combatTurnOrder = [];
 let combatTurnCursor = 0;
 let monsterTurnTimeoutId = null;
+let lastCenteredAscentNodeKey = '';
 const INITIATIVE_BASE = {
     classes: {
         Warrior: 11,
@@ -134,6 +146,9 @@ const INITIATIVE_BASE = {
         Goblin: 13,
         Orc: 9,
         Troll: 7,
+        'Imp des tenebres': 15,
+        Cultiste: 11,
+        'Spectre mineur': 12,
         Shaman: 12,
         Kobold: 14,
         'Chef kobold': 11,
@@ -143,7 +158,8 @@ const INITIATIVE_BASE = {
         'Golem de glace': 8,
         'Golem de feu': 8,
         'Chevalier spectrale': 10,
-        'Reine araignee': 12
+        'Reine araignee': 12,
+        'Squelette invoque': 9
     }
 };
 const NECRO_SOUL_THEFT_PASSIVE_ID = 'necro_obscur';
@@ -1290,6 +1306,9 @@ function buildGameSaveState() {
     const currentFloor = Math.max(0, Math.floor(Number(dungeon.currentFloor) || 0));
     const currentRoomX = Math.max(0, Math.floor(Number(dungeon.currentRoom && dungeon.currentRoom.x) || 0));
     const currentRoomY = Math.max(0, Math.floor(Number(dungeon.currentRoom && dungeon.currentRoom.y) || 0));
+    const currentRoomNodeId = dungeon.currentRoom && typeof dungeon.currentRoom.nodeId === 'string'
+        ? dungeon.currentRoom.nodeId
+        : '';
 
     return {
         schemaVersion: SAVE_SCHEMA_VERSION,
@@ -1301,7 +1320,11 @@ function buildGameSaveState() {
         dungeon: {
             floors: dungeonFloors,
             currentFloor,
-            currentRoom: { x: currentRoomX, y: currentRoomY }
+            currentRoom: {
+                x: currentRoomX,
+                y: currentRoomY,
+                nodeId: currentRoomNodeId
+            }
         },
         characters: savedCharacters,
         partyInventory: Array.isArray(savedInventory) ? savedInventory : []
@@ -1506,10 +1529,14 @@ function loadSavedGameProgress() {
 
     const savedRoom = savedDungeon.currentRoom && typeof savedDungeon.currentRoom === 'object'
         ? savedDungeon.currentRoom
-        : { x: 0, y: 0 };
-    const roomX = Math.max(0, Math.min(3, Math.floor(Number(savedRoom.x) || 0)));
-    const roomY = Math.max(0, Math.min(2, Math.floor(Number(savedRoom.y) || 0)));
-    dungeon.currentRoom = { x: roomX, y: roomY };
+        : { x: 0, y: 0, nodeId: '' };
+    if (typeof dungeon.normalizeCurrentRoom === 'function') {
+        dungeon.currentRoom = dungeon.normalizeCurrentRoom(savedRoom, dungeon.currentFloor);
+    } else {
+        const roomX = Math.max(0, Math.min(3, Math.floor(Number(savedRoom.x) || 0)));
+        const roomY = Math.max(0, Math.min(2, Math.floor(Number(savedRoom.y) || 0)));
+        dungeon.currentRoom = { x: roomX, y: roomY, nodeId: '' };
+    }
 
     availableRestRations = Math.max(0, Math.floor(Number(savedGame.availableRestRations) || 0));
     discoveredChestFloors.clear();
@@ -1531,6 +1558,7 @@ function loadSavedGameProgress() {
     summonedAllies = [];
     combatTurnOrder = [];
     combatTurnCursor = 0;
+    resetCombatPerformanceStats();
     clearDamageFlashQueue();
     clearMonsterTurnTimeout();
     stopCombatMusic();
@@ -1555,6 +1583,10 @@ function loadSavedGameProgress() {
     const inventoryModal = document.getElementById('inventory-modal');
     if (inventoryModal) {
         inventoryModal.style.display = 'none';
+    }
+    const combatSummaryModal = document.getElementById('combat-summary-modal');
+    if (combatSummaryModal) {
+        combatSummaryModal.style.display = 'none';
     }
 
     updateCharacterUI();
@@ -1584,6 +1616,7 @@ function initGame(selection = DEFAULT_PARTY_CLASSES) {
     isGameOver = false;
     combatTurnOrder = [];
     combatTurnCursor = 0;
+    resetCombatPerformanceStats();
     clearDamageFlashQueue();
     clearMonsterTurnTimeout();
     stopCombatMusic();
@@ -1592,7 +1625,7 @@ function initGame(selection = DEFAULT_PARTY_CLASSES) {
         dungeon.floors = [];
     }
     dungeon.currentFloor = 0;
-    dungeon.currentRoom = { x: 0, y: 0 };
+    dungeon.currentRoom = { x: 0, y: 0, nodeId: '' };
     if (typeof dungeon.generateTower === 'function') {
         dungeon.generateTower();
     }
@@ -1603,6 +1636,10 @@ function initGame(selection = DEFAULT_PARTY_CLASSES) {
     const gameOverModal = document.getElementById('game-over-modal');
     if (gameOverModal) {
         gameOverModal.style.display = 'none';
+    }
+    const combatSummaryModal = document.getElementById('combat-summary-modal');
+    if (combatSummaryModal) {
+        combatSummaryModal.style.display = 'none';
     }
     for (let i = 0; i < PARTY_SIZE; i += 1) {
         const classType = partySelection[i];
@@ -1616,13 +1653,184 @@ function initGame(selection = DEFAULT_PARTY_CLASSES) {
     saveGameProgressIfPossible('new-game-start');
 }
 
+function isAscentPathMode() {
+    return Boolean(dungeon && typeof dungeon.isAscentPathMode === 'function' && dungeon.isAscentPathMode());
+}
+
+function getRoomTypeDisplayLabel(room) {
+    if (!room || typeof room !== 'object') {
+        return 'Exploration';
+    }
+    if (room.nodeType === 'boss') {
+        return 'Boss';
+    }
+    if (room.nodeType === 'rest' || room.type === 'rest') {
+        return 'Repos';
+    }
+    if (room.type === 'monster') {
+        return 'Combat';
+    }
+    if (room.type === 'empty' && room.cleared) {
+        return 'Termine';
+    }
+    return 'Exploration';
+}
+
+function normalizeMapTileImagePath(imagePath) {
+    if (typeof imagePath !== 'string') {
+        return '';
+    }
+    const trimmedPath = imagePath.trim();
+    if (!trimmedPath) {
+        return '';
+    }
+    const hasAbsoluteScheme = /^(?:[a-z]+:)?\/\//i.test(trimmedPath)
+        || trimmedPath.startsWith('data:')
+        || trimmedPath.startsWith('blob:')
+        || trimmedPath.startsWith('file:');
+    if (
+        hasAbsoluteScheme
+        || trimmedPath.startsWith('/')
+        || trimmedPath.startsWith('../')
+        || trimmedPath.startsWith('./')
+    ) {
+        return trimmedPath;
+    }
+    if (trimmedPath.startsWith('Images/')) {
+        return `../${trimmedPath}`;
+    }
+    return trimmedPath;
+}
+
+function getBossNodeTileImage(room) {
+    if (!room || typeof room !== 'object' || room.nodeType !== 'boss') {
+        return '';
+    }
+    const forcedMonsterType = typeof room.forcedMonsterType === 'string'
+        ? room.forcedMonsterType.trim()
+        : '';
+    if (!forcedMonsterType) {
+        return '';
+    }
+    if (typeof MONSTER_DATA === 'undefined' || !MONSTER_DATA || typeof MONSTER_DATA !== 'object') {
+        return '';
+    }
+    const bossTemplate = MONSTER_DATA[forcedMonsterType];
+    if (!bossTemplate || typeof bossTemplate.image !== 'string' || bossTemplate.image.trim().length === 0) {
+        return '';
+    }
+    return normalizeMapTileImagePath(bossTemplate.image);
+}
+
+function clearTemporaryCharacterStatesForRest(character) {
+    if (!character) {
+        return;
+    }
+    if (typeof character.hasAttackWeakness === 'function' && character.hasAttackWeakness()) {
+        character.attackWeakenAmount = 0;
+        character.attackWeakenTurns = 0;
+    }
+    if (typeof character.isColdNumb === 'function' && character.isColdNumb()) {
+        character.coldNumbTurns = 0;
+        character.coldNumbDamageMultiplier = 1;
+        character.coldNumbAppliedThisTurn = false;
+    }
+    if (typeof character.isBurning === 'function' && character.isBurning()) {
+        character.burnDamage = 0;
+        character.burnTurns = 0;
+        character.burnAppliedThisTurn = false;
+    }
+    if (typeof character.isInfected === 'function' && character.isInfected()) {
+        character.infectionDamage = 0;
+        character.infectionTurns = 0;
+        character.infectionAppliedThisTurn = false;
+    }
+    if (typeof character.hasProtectionShield === 'function' && character.hasProtectionShield()) {
+        character.protectionShieldValue = 0;
+        character.protectionShieldTurns = 0;
+        character.protectionShieldAppliedThisTurn = false;
+    }
+}
+
+function applyRestorationToParty(options = {}) {
+    const sourceLabel = typeof options.sourceLabel === 'string' && options.sourceLabel.trim().length > 0
+        ? options.sourceLabel.trim()
+        : 'repos';
+    let totalRestoredHealth = 0;
+    let totalRestoredMana = 0;
+    characters.forEach((character) => {
+        if (!character) {
+            return;
+        }
+        const beforeHealth = Math.max(0, Math.floor(Number(character.health) || 0));
+        const beforeMana = Math.max(0, Math.floor(Number(character.mana) || 0));
+        character.health = character.maxHealth;
+        if (usesManaResource(character)) {
+            character.mana = character.maxMana;
+        }
+        clearTemporaryCharacterStatesForRest(character);
+        totalRestoredHealth += Math.max(0, character.health - beforeHealth);
+        totalRestoredMana += Math.max(0, character.mana - beforeMana);
+    });
+    updateCharacterUI();
+    logMessage(`Le groupe profite d un ${sourceLabel}: +${totalRestoredHealth} PV et +${totalRestoredMana} mana.`);
+}
+
+function trySelectPathNode(roomId) {
+    if (isGameOver || !hasGameStarted || inCombat || chestEventActive) {
+        return false;
+    }
+    if (!dungeon || typeof dungeon.enterRoomById !== 'function') {
+        return false;
+    }
+    const selectedRoom = dungeon.enterRoomById(roomId);
+    if (!selectedRoom) {
+        return false;
+    }
+
+    currentMonsters = [];
+    summonedAllies = [];
+    inCombat = false;
+    if (selectedRoom.type === 'monster') {
+        saveGameProgressIfPossible('before-combat-room');
+    }
+    updateUI();
+    render();
+    return true;
+}
+
 function updateUI() {
-    logMessage(`Étage ${dungeon.currentFloor + 1}, Salle ${dungeon.currentRoom.x + dungeon.currentRoom.y * 4 + 1}`);
     const room = dungeon.getCurrentRoom();
+    if (!room) {
+        return;
+    }
+
+    if (isAscentPathMode()) {
+        const floorLabel = `Ascension ${dungeon.currentFloor + 1}`;
+        const rowLabel = typeof room.y === 'number' ? `Rang ${room.y + 1}` : 'Rang ?';
+        logMessage(`${floorLabel} - ${rowLabel} - ${getRoomTypeDisplayLabel(room)}`);
+    } else {
+        logMessage(`Étage ${dungeon.currentFloor + 1}, Salle ${dungeon.currentRoom.x + dungeon.currentRoom.y * 4 + 1}`);
+    }
+
+    if (isAscentPathMode() && room.nodeType === 'rest' && room.entered && !room.cleared) {
+        applyRestorationToParty({ sourceLabel: 'point de repos' });
+        const restCompletion = typeof dungeon.completeCurrentRoom === 'function'
+            ? dungeon.completeCurrentRoom()
+            : null;
+        if (restCompletion && restCompletion.completed) {
+            logMessage('Le chemin vers le rang suivant est ouvert.');
+        }
+    }
     
+    const canUsePathCombatGate = !isAscentPathMode() || (room.entered && !room.cleared);
+
     // First, create monster(s) if needed
-    if (room.type === 'monster' && currentMonsters.length === 0) {
-        const count = Math.max(1, Math.floor(room.monsterCount || 0) || 1);
+    if (room.type === 'monster' && canUsePathCombatGate && currentMonsters.length === 0) {
+        const currentFloorIndex = Math.max(0, Math.floor(Number(dungeon.currentFloor) || 0));
+        const count = (dungeon && typeof dungeon.normalizeMonsterCountForFloor === 'function')
+            ? dungeon.normalizeMonsterCountForFloor(room.monsterCount, currentFloorIndex, room)
+            : Math.max(1, Math.floor(room.monsterCount || 0) || 1);
         room.monsterCount = count;
         currentMonsters = [];
 
@@ -1663,7 +1871,7 @@ function updateUI() {
     }
     
     // Then manage combat state
-    if (room.type === 'monster' && currentMonsters.length > 0) {
+    if (room.type === 'monster' && canUsePathCombatGate && currentMonsters.length > 0) {
         if (!inCombat) {
             startCombat();
         }
@@ -1861,6 +2069,121 @@ function getCharacterPortraitPath(character) {
     return '';
 }
 
+function createCombatPerformanceStatsState() {
+    return {
+        characters: new Map()
+    };
+}
+
+function ensureCombatPerformanceEntryForCharacter(character) {
+    if (!character || !character.entityId || !character.name) {
+        return null;
+    }
+    if (!combatPerformanceStats || !combatPerformanceStats.characters) {
+        combatPerformanceStats = createCombatPerformanceStatsState();
+    }
+    const entries = combatPerformanceStats.characters;
+    const existing = entries.get(character.entityId);
+    if (existing) {
+        existing.name = character.name;
+        existing.classType = character.classType || '';
+        return existing;
+    }
+
+    const created = {
+        entityId: character.entityId,
+        name: character.name,
+        classType: character.classType || '',
+        damageDealt: 0,
+        damageTaken: 0
+    };
+    entries.set(character.entityId, created);
+    return created;
+}
+
+function initializeCombatPerformanceStats() {
+    combatPerformanceStats = createCombatPerformanceStatsState();
+    if (!Array.isArray(characters)) {
+        return;
+    }
+    characters.forEach((character) => {
+        ensureCombatPerformanceEntryForCharacter(character);
+    });
+}
+
+function resetCombatPerformanceStats() {
+    combatPerformanceStats = null;
+    pendingCombatSummaryResult = null;
+    if (typeof window !== 'undefined') {
+        window.__combatDamageSource = null;
+    }
+}
+
+function snapshotCombatPerformanceByCharacter() {
+    if (!Array.isArray(characters)) {
+        return [];
+    }
+    const entries = combatPerformanceStats && combatPerformanceStats.characters
+        ? combatPerformanceStats.characters
+        : null;
+    return characters
+        .filter((character) => Boolean(character))
+        .map((character) => {
+            const tracked = entries ? entries.get(character.entityId) : null;
+            return {
+                entityId: character.entityId,
+                name: character.name,
+                classType: character.classType || '',
+                damageDealt: Math.max(0, Math.floor(Number(tracked && tracked.damageDealt) || 0)),
+                damageTaken: Math.max(0, Math.floor(Number(tracked && tracked.damageTaken) || 0))
+            };
+        });
+}
+
+function recordCombatDamageEvent(target, damageAmount, options = {}) {
+    if (!inCombat) {
+        return;
+    }
+    const normalizedDamage = Math.max(0, Math.floor(Number(damageAmount) || 0));
+    if (normalizedDamage <= 0) {
+        return;
+    }
+
+    const normalizedOptions = options && typeof options === 'object' ? options : {};
+    const fallbackAttacker = (typeof window !== 'undefined' && window.__combatDamageSource)
+        ? window.__combatDamageSource
+        : null;
+    const attacker = normalizedOptions.attacker || fallbackAttacker;
+
+    if (target && target.entityType === 'character') {
+        const targetEntry = ensureCombatPerformanceEntryForCharacter(target);
+        if (targetEntry) {
+            targetEntry.damageTaken += normalizedDamage;
+        }
+    }
+
+    if (attacker && attacker.entityType === 'character') {
+        const isSelfInflictedCharacterHit = Boolean(
+            target
+            && target.entityType === 'character'
+            && target.entityId
+            && attacker.entityId
+            && target.entityId === attacker.entityId
+        );
+        if (isSelfInflictedCharacterHit) {
+            return;
+        }
+        const attackerEntry = ensureCombatPerformanceEntryForCharacter(attacker);
+        if (attackerEntry) {
+            attackerEntry.damageDealt += normalizedDamage;
+        }
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.recordCombatDamageEvent = recordCombatDamageEvent;
+}
+
 function queueDamageFlash(entity, damageAmount = 0) {
     if (!entity || !entity.entityId || !entity.entityType) {
         return;
@@ -1937,7 +2260,34 @@ function getAliveCombatMonsters() {
     return currentMonsters.filter((monster) => monster && typeof monster.isAlive === 'function' && monster.isAlive());
 }
 
+function triggerDarkImpDeathExplosion(defeatedMonster) {
+    if (
+        !defeatedMonster
+        || typeof defeatedMonster.isDarkImp !== 'function'
+        || !defeatedMonster.isDarkImp()
+    ) {
+        return false;
+    }
+    const rawExplosionDamage = Math.max(0, Math.floor(Number(defeatedMonster.deathExplosionFireDamage) || 0));
+    if (rawExplosionDamage <= 0 || !Array.isArray(characters) || characters.length === 0) {
+        return false;
+    }
+    const aliveHeroes = getAliveCharacters();
+    if (aliveHeroes.length === 0) {
+        return false;
+    }
+    const target = pickMonsterAttackTarget(aliveHeroes);
+    if (!target) {
+        return false;
+    }
+    const damage = target.takeDamage(rawExplosionDamage, { damageType: 'fire' });
+    logMessage(`${defeatedMonster.name} declenche Explosion finale et brule ${target.name} pour ${damage} degats de feu.`);
+    return true;
+}
+
 function handleMonsterDefeatPassiveEffects(defeatedMonster) {
+    triggerDarkImpDeathExplosion(defeatedMonster);
+
     if (!defeatedMonster || !Array.isArray(characters) || characters.length === 0) {
         return;
     }
@@ -2235,6 +2585,10 @@ function updateRestButton() {
     if (!restButton) {
         return;
     }
+    if (isAscentPathMode()) {
+        restButton.style.display = 'none';
+        return;
+    }
     const restLabel = getRestButtonLabel();
     restButton.style.display = 'block';
     restButton.textContent = restLabel;
@@ -2247,6 +2601,13 @@ function updateRestButton() {
 
 function updateStairsButton(room) {
     const stairsButton = document.getElementById('climb-stairs');
+    if (!stairsButton) {
+        return;
+    }
+    if (isAscentPathMode()) {
+        stairsButton.style.display = 'none';
+        return;
+    }
     if (room.hasStairs) {
         stairsButton.style.display = 'block';
     } else {
@@ -2259,6 +2620,7 @@ function startCombat() {
         return;
     }
     inCombat = true;
+    initializeCombatPerformanceStats();
     prepareCombatMusicForNewFight();
     clearDamageFlashQueue();
     clearMonsterTurnTimeout();
@@ -2279,7 +2641,11 @@ function startCombat() {
     advanceCombatFlow();
 }
 
-function endCombat() {
+function endCombat(options = {}) {
+    const normalizedOptions = options && typeof options === 'object' ? options : {};
+    const shouldEnableMovement = normalizedOptions.enableMovement !== false;
+    const shouldCheckLevelUps = normalizedOptions.checkLevelUps !== false;
+    const shouldSaveProgress = normalizedOptions.saveProgress !== false;
     inCombat = false;
     stopCombatMusic();
     characters.forEach((char) => {
@@ -2291,14 +2657,21 @@ function endCombat() {
     summonedAllies = [];
     combatTurnOrder = [];
     combatTurnCursor = 0;
+    resetCombatPerformanceStats();
     clearDamageFlashQueue();
     clearMonsterTurnTimeout();
-    setMovementEnabled(true);
+    if (shouldEnableMovement) {
+        setMovementEnabled(true);
+    }
     document.getElementById('combat-modal').style.display = 'none';
     updateCharacterUI();
     syncDungeonMapMusic();
-    checkLevelUps();
-    saveGameProgressIfPossible('end-combat');
+    if (shouldCheckLevelUps) {
+        checkLevelUps();
+    }
+    if (shouldSaveProgress) {
+        saveGameProgressIfPossible('end-combat');
+    }
 }
 
 function triggerGameOver() {
@@ -2315,6 +2688,7 @@ function triggerGameOver() {
     summonedAllies = [];
     combatTurnOrder = [];
     combatTurnCursor = 0;
+    resetCombatPerformanceStats();
     clearDamageFlashQueue();
     clearMonsterTurnTimeout();
     setMovementEnabled(false);
@@ -2339,6 +2713,10 @@ function triggerGameOver() {
     const inventoryModal = document.getElementById('inventory-modal');
     if (inventoryModal) {
         inventoryModal.style.display = 'none';
+    }
+    const combatSummaryModal = document.getElementById('combat-summary-modal');
+    if (combatSummaryModal) {
+        combatSummaryModal.style.display = 'none';
     }
 
     logMessage('Tous les personnages sont morts! La partie est terminee.');
@@ -2651,6 +3029,18 @@ function updateCombatUI() {
         }
         if (typeof m.isSpiderQueen === 'function' && m.isSpiderQueen()) {
             roleTags.push('Boss');
+        }
+        if (typeof m.isDarkImp === 'function' && m.isDarkImp()) {
+            roleTags.push('Imp');
+        }
+        if (typeof m.isCultist === 'function' && m.isCultist()) {
+            roleTags.push('Cultiste');
+        }
+        if (typeof m.isSkeletonMinion === 'function' && m.isSkeletonMinion()) {
+            roleTags.push('Invocation');
+        }
+        if (typeof m.isMinorSpecter === 'function' && m.isMinorSpecter()) {
+            roleTags.push('Spectre');
         }
         const roleText = roleTags.length > 0 ? ` | ${roleTags.join(', ')}` : '';
         const stunText = (typeof m.isStunned === 'function' && m.isStunned()) ? ` | Etourdi: ${m.stunnedTurns} tours` : '';
@@ -3143,11 +3533,20 @@ function performMonsterTurnEntity(monster) {
     const usedSpiderQueenAction = (typeof monster.isSpiderQueen === 'function' && monster.isSpiderQueen())
         ? performSpiderQueenAction(monster, aliveMonsters, alliedTargets, aliveChars)
         : false;
+    const usedCultistAction = (typeof monster.isCultist === 'function' && monster.isCultist())
+        ? performCultistAction(monster, aliveMonsters, alliedTargets, aliveChars)
+        : false;
+    const usedMinorSpecterAction = (typeof monster.isMinorSpecter === 'function' && monster.isMinorSpecter())
+        ? performMinorSpecterAction(monster, alliedTargets, aliveChars)
+        : false;
+    const usedDarkImpAction = (typeof monster.isDarkImp === 'function' && monster.isDarkImp())
+        ? performDarkImpAction(monster, alliedTargets, aliveChars)
+        : false;
     if (typeof monster.isSpectralKnight === 'function' && monster.isSpectralKnight()) {
         performSpectralKnightAction(monster, aliveChars);
     }
 
-    if (!usedKoboldChiefAction && !usedSpiderAction && !usedShamanAction && !usedSpiderQueenAction) {
+    if (!usedKoboldChiefAction && !usedSpiderAction && !usedShamanAction && !usedSpiderQueenAction && !usedCultistAction && !usedMinorSpecterAction && !usedDarkImpAction) {
         performMonsterBasicAttack(monster, alliedTargets);
     }
     applyMonsterTurnEffects(monster);
@@ -3277,6 +3676,11 @@ function finishCharacterAction(activeChar, shouldCheckVictory) {
     resolveMonsterDeathSplits();
     updateCharacterUI();
     render();
+
+    if (getAliveCharacters().length === 0) {
+        triggerGameOver();
+        return;
+    }
 
     if (!hasAliveMonsters()) {
         handleVictory();
@@ -3456,7 +3860,10 @@ function castRainOfFire(activeChar) {
     // Damage to each monster
     aliveMonsters.forEach(m => {
         const rawDamage = spellDamageScaler(12, 'Pluie de feu');
-        const damage = m.takeDamage(rawDamage, { damageType: 'fire' });
+        const damage = m.takeDamage(rawDamage, {
+            damageType: 'fire',
+            attacker: activeChar
+        });
         let burnText = '';
         if (
             typeof m.applyBurn === 'function'
@@ -4080,26 +4487,535 @@ function performSpiderAction(spider, aliveMonsters, aliveChars) {
     return false;
 }
 
+function performCultistAction(cultist, aliveMonsters, aliveAllies, aliveChars) {
+    if (!cultist || typeof cultist.isCultist !== 'function' || !cultist.isCultist()) {
+        return false;
+    }
+
+    const livingMonsters = Array.isArray(aliveMonsters) ? aliveMonsters.filter((entity) => entity && entity.isAlive()) : [];
+    const livingAllies = Array.isArray(aliveAllies) ? aliveAllies.filter((entity) => entity && entity.isAlive()) : [];
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    if (livingAllies.length === 0) {
+        return false;
+    }
+
+    const canUseCurse = Boolean(
+        livingHeroes.length > 0
+        && Math.max(0, Math.floor(cultist.curseWeakenAmount || 0)) > 0
+        && Math.max(0, Math.floor(cultist.curseWeakenTurns || 0)) > 0
+    );
+    const canUseDrain = Math.max(0, Math.floor(cultist.lifeDrainDamage || 0)) > 0 && livingHeroes.length > 0;
+    const woundedAlliedMonsters = livingMonsters.filter((monster) => (
+        monster
+        && monster !== cultist
+        && monster.health < monster.maxHealth
+    ));
+    const canUseUnholyHeal = woundedAlliedMonsters.length > 0 && Math.max(0, Math.floor(cultist.healPower || 0)) > 0;
+    const summonType = typeof cultist.summonType === 'string' ? cultist.summonType : '';
+    const summonCount = Math.max(0, Math.floor(cultist.summonCount || 0));
+    const canUseShadowCall = Boolean(
+        summonType
+        && summonCount > 0
+        && livingMonsters.length + summonCount <= MAX_MONSTERS_IN_COMBAT
+    );
+
+    const actionCandidates = [];
+    if (canUseCurse) {
+        actionCandidates.push({ key: 'curse', weight: 0.45 });
+    }
+    if (canUseDrain) {
+        actionCandidates.push({ key: 'drain', weight: 0.5 });
+    }
+    if (canUseUnholyHeal) {
+        actionCandidates.push({ key: 'unholy_heal', weight: 0.38 });
+    }
+    if (canUseShadowCall) {
+        actionCandidates.push({ key: 'shadow_call', weight: 0.3 });
+    }
+    actionCandidates.push({ key: 'ritual_dagger', weight: 1 });
+
+    let roll = Math.random() * actionCandidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+    let selectedAction = actionCandidates[actionCandidates.length - 1].key;
+    for (let i = 0; i < actionCandidates.length; i += 1) {
+        roll -= actionCandidates[i].weight;
+        if (roll <= 0) {
+            selectedAction = actionCandidates[i].key;
+            break;
+        }
+    }
+
+    if (selectedAction === 'unholy_heal' && canUseUnholyHeal) {
+        const healTarget = getMostInjuredMonster(woundedAlliedMonsters);
+        if (healTarget) {
+            const healAmount = Math.max(1, Math.floor(cultist.healPower || 0));
+            const beforeHealth = healTarget.health;
+            healTarget.health = Math.min(healTarget.maxHealth, healTarget.health + healAmount);
+            const restored = Math.max(0, healTarget.health - beforeHealth);
+            if (restored > 0) {
+                logMessage(`${cultist.name} lance Soin impie sur ${healTarget.name} et restaure ${restored} PV.`);
+                return true;
+            }
+        }
+    }
+
+    if (selectedAction === 'shadow_call' && canUseShadowCall) {
+        const availableSlots = Math.max(0, MAX_MONSTERS_IN_COMBAT - livingMonsters.length);
+        const targetSummonCount = Math.min(summonCount, availableSlots);
+        let spawnedCount = 0;
+        for (let i = 0; i < targetSummonCount; i += 1) {
+            const summonedUndead = createMonster(summonType);
+            if (registerSummonedMonster(summonedUndead)) {
+                spawnedCount += 1;
+            }
+        }
+        if (spawnedCount > 0) {
+            const label = spawnedCount > 1 ? 'squelettes faibles' : 'squelette faible';
+            logMessage(`${cultist.name} utilise Appel des ombres et invoque ${spawnedCount} ${label}.`);
+            return true;
+        }
+    }
+
+    if (selectedAction === 'curse' && canUseCurse) {
+        const nonWeakenedHeroes = livingHeroes.filter((hero) => (
+            typeof hero.hasAttackWeakness !== 'function' || !hero.hasAttackWeakness()
+        ));
+        const curseTargets = nonWeakenedHeroes.length > 0 ? nonWeakenedHeroes : livingHeroes;
+        const target = pickMonsterAttackTarget(curseTargets);
+        if (target && typeof target.applyAttackWeakness === 'function') {
+            target.applyAttackWeakness(cultist.curseWeakenAmount, cultist.curseWeakenTurns);
+            const weaknessText = typeof target.getAttackWeaknessText === 'function' ? target.getAttackWeaknessText() : '';
+            logMessage(`${cultist.name} lance Malediction sur ${target.name}. ${weaknessText}`);
+            return true;
+        }
+    }
+
+    if (selectedAction === 'drain' && canUseDrain) {
+        const target = pickMonsterAttackTarget(livingHeroes);
+        if (target) {
+            const rawDrainDamage = Math.max(1, Math.floor(cultist.lifeDrainDamage || 0));
+            const damage = target.takeDamage(rawDrainDamage, {
+                damageType: 'magic',
+                attacker: cultist,
+                enableRiposte: false
+            });
+            const drainRatio = Number.isFinite(cultist.lifeDrainHealRatio)
+                ? Math.max(0, Math.min(1, Number(cultist.lifeDrainHealRatio)))
+                : 0.5;
+            const healAmount = Math.max(1, Math.round(damage * drainRatio));
+            const beforeHealth = cultist.health;
+            cultist.health = Math.min(cultist.maxHealth, cultist.health + healAmount);
+            const restored = Math.max(0, cultist.health - beforeHealth);
+            logMessage(`${cultist.name} utilise Drain mineur sur ${target.name}: ${damage} degats, ${restored} PV recuperes.`);
+            if (!target.isAlive() && target.entityType === 'summon') {
+                logMessage(`${target.name} est detruit.`);
+            }
+            return true;
+        }
+    }
+
+    const daggerTarget = pickMonsterAttackTarget(livingAllies);
+    if (!daggerTarget) {
+        return false;
+    }
+    const attackValue = typeof cultist.getCurrentAttack === 'function' ? cultist.getCurrentAttack() : cultist.attack;
+    const rawDaggerDamage = Math.max(1, attackValue);
+    const damageContext = {
+        damageType: 'physical',
+        attacker: cultist,
+        enableRiposte: true
+    };
+    const daggerDamage = daggerTarget.takeDamage(rawDaggerDamage, damageContext);
+    logMessage(`${cultist.name} frappe ${daggerTarget.name} avec Dague rituelle pour ${daggerDamage} degats.`);
+    logRiposteOutcome(damageContext.riposteOutcome);
+    if (!daggerTarget.isAlive() && daggerTarget.entityType === 'summon') {
+        logMessage(`${daggerTarget.name} est detruit.`);
+    }
+    return true;
+}
+
+function performMinorSpecterAction(minorSpecter, aliveAllies, aliveChars) {
+    if (!minorSpecter || typeof minorSpecter.isMinorSpecter !== 'function' || !minorSpecter.isMinorSpecter()) {
+        return false;
+    }
+
+    const livingAllies = Array.isArray(aliveAllies) ? aliveAllies.filter((entity) => entity && entity.isAlive()) : [];
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    if (livingAllies.length === 0) {
+        return false;
+    }
+
+    const canUseChill = Boolean(
+        livingHeroes.length > 0
+        && Math.max(0, Math.floor(minorSpecter.curseWeakenAmount || 0)) > 0
+        && Math.max(0, Math.floor(minorSpecter.curseWeakenTurns || 0)) > 0
+    );
+    const canUseDrain = Math.max(0, Math.floor(minorSpecter.lifeDrainDamage || 0)) > 0 && livingHeroes.length > 0;
+
+    const actionCandidates = [];
+    if (canUseChill) {
+        actionCandidates.push({ key: 'grave_chill', weight: 0.4 });
+    }
+    if (canUseDrain) {
+        actionCandidates.push({ key: 'minor_drain', weight: 0.48 });
+    }
+    actionCandidates.push({ key: 'spectral_touch', weight: 1 });
+
+    let roll = Math.random() * actionCandidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+    let selectedAction = actionCandidates[actionCandidates.length - 1].key;
+    for (let i = 0; i < actionCandidates.length; i += 1) {
+        roll -= actionCandidates[i].weight;
+        if (roll <= 0) {
+            selectedAction = actionCandidates[i].key;
+            break;
+        }
+    }
+
+    if (selectedAction === 'grave_chill' && canUseChill) {
+        const nonWeakenedHeroes = livingHeroes.filter((hero) => (
+            typeof hero.hasAttackWeakness !== 'function' || !hero.hasAttackWeakness()
+        ));
+        const chillTargets = nonWeakenedHeroes.length > 0 ? nonWeakenedHeroes : livingHeroes;
+        const target = pickMonsterAttackTarget(chillTargets);
+        if (target && typeof target.applyAttackWeakness === 'function') {
+            target.applyAttackWeakness(minorSpecter.curseWeakenAmount, minorSpecter.curseWeakenTurns);
+            const weaknessText = typeof target.getAttackWeaknessText === 'function' ? target.getAttackWeaknessText() : '';
+            logMessage(`${minorSpecter.name} utilise Frisson d outre-tombe sur ${target.name}. ${weaknessText}`);
+            return true;
+        }
+    }
+
+    if (selectedAction === 'minor_drain' && canUseDrain) {
+        const target = pickMonsterAttackTarget(livingHeroes);
+        if (target) {
+            const rawDrainDamage = Math.max(1, Math.floor(minorSpecter.lifeDrainDamage || 0));
+            const damage = target.takeDamage(rawDrainDamage, {
+                damageType: 'magic',
+                attacker: minorSpecter,
+                enableRiposte: false
+            });
+            const drainRatio = Number.isFinite(minorSpecter.lifeDrainHealRatio)
+                ? Math.max(0, Math.min(1, Number(minorSpecter.lifeDrainHealRatio)))
+                : 0.5;
+            const healAmount = Math.max(1, Math.round(damage * drainRatio));
+            const beforeHealth = minorSpecter.health;
+            minorSpecter.health = Math.min(minorSpecter.maxHealth, minorSpecter.health + healAmount);
+            const restored = Math.max(0, minorSpecter.health - beforeHealth);
+            logMessage(`${minorSpecter.name} utilise Drain mineur sur ${target.name}: ${damage} degats, ${restored} PV recuperes.`);
+            return true;
+        }
+    }
+
+    const touchTarget = pickMonsterAttackTarget(livingAllies);
+    if (!touchTarget) {
+        return false;
+    }
+    const attackValue = typeof minorSpecter.getCurrentAttack === 'function' ? minorSpecter.getCurrentAttack() : minorSpecter.attack;
+    const rawTouchDamage = Math.max(1, attackValue);
+    const touchDamage = touchTarget.takeDamage(rawTouchDamage, {
+        damageType: 'magic',
+        attacker: minorSpecter,
+        enableRiposte: false
+    });
+    logMessage(`${minorSpecter.name} utilise Toucher spectral sur ${touchTarget.name} et inflige ${touchDamage} degats magiques.`);
+    if (!touchTarget.isAlive() && touchTarget.entityType === 'summon') {
+        logMessage(`${touchTarget.name} est detruit.`);
+    }
+    return true;
+}
+
+function performDarkImpAction(darkImp, aliveAllies, aliveChars) {
+    if (!darkImp || typeof darkImp.isDarkImp !== 'function' || !darkImp.isDarkImp()) {
+        return false;
+    }
+
+    const livingAllies = Array.isArray(aliveAllies) ? aliveAllies.filter((entity) => entity && entity.isAlive()) : [];
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    if (livingAllies.length === 0) {
+        return false;
+    }
+
+    const canUseInfernalSpark = Math.max(0, Math.floor(darkImp.infernalSparkDamage || 0)) > 0;
+    const canUseCurse = Boolean(
+        livingHeroes.length > 0
+        && Math.max(0, Math.floor(darkImp.curseWeakenAmount || 0)) > 0
+        && Math.max(0, Math.floor(darkImp.curseWeakenTurns || 0)) > 0
+    );
+
+    const actionCandidates = [];
+    if (canUseCurse) {
+        actionCandidates.push({ key: 'cursed_laugh', weight: 0.38 });
+    }
+    if (canUseInfernalSpark) {
+        actionCandidates.push({ key: 'infernal_spark', weight: 0.55 });
+    }
+    actionCandidates.push({ key: 'dark_claw', weight: 1 });
+
+    let roll = Math.random() * actionCandidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+    let selectedAction = actionCandidates[actionCandidates.length - 1].key;
+    for (let i = 0; i < actionCandidates.length; i += 1) {
+        roll -= actionCandidates[i].weight;
+        if (roll <= 0) {
+            selectedAction = actionCandidates[i].key;
+            break;
+        }
+    }
+
+    if (selectedAction === 'cursed_laugh') {
+        const nonWeakenedHeroes = livingHeroes.filter((hero) => (
+            typeof hero.hasAttackWeakness !== 'function' || !hero.hasAttackWeakness()
+        ));
+        const curseTargets = nonWeakenedHeroes.length > 0 ? nonWeakenedHeroes : livingHeroes;
+        const target = pickMonsterAttackTarget(curseTargets);
+        if (target && typeof target.applyAttackWeakness === 'function') {
+            target.applyAttackWeakness(darkImp.curseWeakenAmount, darkImp.curseWeakenTurns);
+            const weaknessText = typeof target.getAttackWeaknessText === 'function' ? target.getAttackWeaknessText() : '';
+            logMessage(`${darkImp.name} lance Ricanement maudit sur ${target.name}. ${weaknessText}`);
+            return true;
+        }
+    }
+
+    if (selectedAction === 'infernal_spark') {
+        const target = pickMonsterAttackTarget(livingAllies);
+        if (target) {
+            const rawDamage = Math.max(1, Math.floor(darkImp.infernalSparkDamage || 0));
+            const damage = target.takeDamage(rawDamage, {
+                damageType: 'fire',
+                attacker: darkImp,
+                enableRiposte: false
+            });
+            logMessage(`${darkImp.name} lance Etincelle infernale sur ${target.name} et inflige ${damage} degats de feu.`);
+            if (!target.isAlive() && target.entityType === 'summon') {
+                logMessage(`${target.name} est detruit.`);
+            }
+            return true;
+        }
+    }
+
+    const clawTarget = pickMonsterAttackTarget(livingAllies);
+    if (!clawTarget) {
+        return false;
+    }
+    const attackValue = typeof darkImp.getCurrentAttack === 'function' ? darkImp.getCurrentAttack() : darkImp.attack;
+    const rawClawDamage = Math.max(1, attackValue);
+    const damageContext = {
+        damageType: 'physical',
+        attacker: darkImp,
+        enableRiposte: true
+    };
+    const clawDamage = clawTarget.takeDamage(rawClawDamage, damageContext);
+    logMessage(`${darkImp.name} utilise Griffe sombre sur ${clawTarget.name} et inflige ${clawDamage} degats.`);
+    logRiposteOutcome(damageContext.riposteOutcome);
+    if (!clawTarget.isAlive() && clawTarget.entityType === 'summon') {
+        logMessage(`${clawTarget.name} est detruit.`);
+    }
+    return true;
+}
+
+function buildCombatSummaryLootGroups(lootedItems) {
+    const safeLoot = Array.isArray(lootedItems) ? lootedItems.filter((item) => Boolean(item)) : [];
+    return {
+        equipment: safeLoot.filter((item) => item.type !== 'consumable'),
+        consumables: safeLoot.filter((item) => item.type === 'consumable')
+    };
+}
+
+function buildCombatSummaryTable(headers, rows) {
+    const table = document.createElement('table');
+    table.className = 'combat-summary-table';
+
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    headers.forEach((headerLabel) => {
+        const th = document.createElement('th');
+        th.textContent = headerLabel;
+        headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    rows.forEach((rowValues) => {
+        const row = document.createElement('tr');
+        rowValues.forEach((cellValue, index) => {
+            const td = document.createElement('td');
+            td.textContent = String(cellValue);
+            if (index > 0) {
+                td.classList.add('combat-summary-stat');
+            }
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    return table;
+}
+
+function createCombatSummarySection(title) {
+    const section = document.createElement('section');
+    section.className = 'combat-summary-section';
+
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    section.appendChild(heading);
+    return section;
+}
+
+function finishCombatSummaryFlow() {
+    pendingCombatSummaryResult = null;
+    const modal = document.getElementById('combat-summary-modal');
+    const sectionsNode = document.getElementById('combat-summary-sections');
+    if (sectionsNode) {
+        sectionsNode.innerHTML = '';
+    }
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    setMovementEnabled(true);
+    checkLevelUps();
+    saveGameProgressIfPossible('end-combat-summary');
+}
+
+function showCombatSummaryModal(summaryData) {
+    const modal = document.getElementById('combat-summary-modal');
+    const subtitleNode = document.getElementById('combat-summary-subtitle');
+    const sectionsNode = document.getElementById('combat-summary-sections');
+
+    if (!modal || !subtitleNode || !sectionsNode) {
+        finishCombatSummaryFlow();
+        return;
+    }
+
+    pendingCombatSummaryResult = summaryData && typeof summaryData === 'object' ? summaryData : {};
+    const safeSummary = pendingCombatSummaryResult;
+    const defeatedMonstersCount = Math.max(0, Math.floor(Number(safeSummary.defeatedMonstersCount) || 0));
+    const totalXpPerLivingHero = Math.max(0, Math.floor(Number(safeSummary.totalXpPerLivingHero) || 0));
+    const xpByCharacter = Array.isArray(safeSummary.xpByCharacter) ? safeSummary.xpByCharacter : [];
+    const damageByCharacter = Array.isArray(safeSummary.damageByCharacter) ? safeSummary.damageByCharacter : [];
+    const lootGroups = buildCombatSummaryLootGroups(safeSummary.lootedItems);
+
+    subtitleNode.textContent = `${defeatedMonstersCount} ennemi(s) vaincu(s) - ${totalXpPerLivingHero} XP par personnage vivant`;
+    sectionsNode.innerHTML = '';
+
+    const lootSection = createCombatSummarySection('Equipements recus');
+    if (lootGroups.equipment.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'combat-summary-empty';
+        empty.textContent = 'Aucun equipement recu sur ce combat.';
+        lootSection.appendChild(empty);
+    } else {
+        const list = document.createElement('ul');
+        list.className = 'combat-summary-list';
+        lootGroups.equipment.forEach((item) => {
+            const listItem = document.createElement('li');
+            listItem.textContent = getLootItemDisplayName(item);
+            list.appendChild(listItem);
+        });
+        lootSection.appendChild(list);
+    }
+    sectionsNode.appendChild(lootSection);
+
+    if (lootGroups.consumables.length > 0) {
+        const extraLootSection = createCombatSummarySection('Autres trouvailles');
+        const list = document.createElement('ul');
+        list.className = 'combat-summary-list';
+        lootGroups.consumables.forEach((item) => {
+            const listItem = document.createElement('li');
+            listItem.textContent = getLootItemDisplayName(item);
+            list.appendChild(listItem);
+        });
+        extraLootSection.appendChild(list);
+        sectionsNode.appendChild(extraLootSection);
+    }
+
+    const xpSection = createCombatSummarySection('Experience par personnage');
+    const xpRows = xpByCharacter.map((entry) => {
+        const characterName = `${entry.name || 'Personnage'}${entry.classType ? ` (${entry.classType})` : ''}`;
+        const xpGained = Math.max(0, Math.floor(Number(entry.xpGained) || 0));
+        const levelBefore = Math.max(1, Math.floor(Number(entry.levelBefore) || 1));
+        const levelAfter = Math.max(1, Math.floor(Number(entry.levelAfter) || levelBefore));
+        const levelText = levelBefore === levelAfter
+            ? `Niv ${levelAfter}`
+            : `Niv ${levelBefore} -> ${levelAfter}`;
+        return [characterName, `${xpGained}`, levelText];
+    });
+    xpSection.appendChild(buildCombatSummaryTable(['Personnage', 'XP gagnee', 'Niveau'], xpRows));
+    sectionsNode.appendChild(xpSection);
+
+    const damageSection = createCombatSummarySection('Dommages par personnage');
+    const damageRows = damageByCharacter.map((entry) => {
+        const characterName = `${entry.name || 'Personnage'}${entry.classType ? ` (${entry.classType})` : ''}`;
+        const dealt = Math.max(0, Math.floor(Number(entry.damageDealt) || 0));
+        const taken = Math.max(0, Math.floor(Number(entry.damageTaken) || 0));
+        return [characterName, `${dealt}`, `${taken}`];
+    });
+    damageSection.appendChild(buildCombatSummaryTable(['Personnage', 'Infliges', 'Subis'], damageRows));
+    sectionsNode.appendChild(damageSection);
+
+    modal.style.display = 'flex';
+    setMovementEnabled(false);
+}
+
 function handleVictory() {
     const defeatedMonsters = [...currentMonsters];
     logMessage(`Tous les monstres sont vaincus!`);
-    // Award XP equal to sum of maxHealth of monsters
-    const xp = currentMonsters.reduce((s, m) => s + (m.maxHealth || 0), 0);
+
+    const xp = currentMonsters.reduce((sum, monster) => sum + (monster.maxHealth || 0), 0);
     const aliveCharacters = getAliveCharacters();
+    const xpByCharacter = Array.isArray(characters)
+        ? characters.filter((char) => Boolean(char)).map((char) => ({
+            entityId: char.entityId,
+            name: char.name,
+            classType: char.classType || '',
+            xpGained: 0,
+            levelBefore: Math.max(1, Math.floor(char.level || 1)),
+            levelAfter: Math.max(1, Math.floor(char.level || 1))
+        }))
+        : [];
+    const xpByCharacterIndex = new Map(xpByCharacter.map((entry) => [entry.entityId, entry]));
+
     if (xp > 0 && aliveCharacters.length > 0) {
         logMessage(`Experience gagnee: ${xp} XP par personnage vivant.`);
     }
     aliveCharacters.forEach((char) => {
+        const summaryEntry = xpByCharacterIndex.get(char.entityId);
+        if (summaryEntry) {
+            summaryEntry.xpGained = xp;
+        }
         char.gainExperience(xp);
+        if (summaryEntry) {
+            summaryEntry.levelAfter = Math.max(1, Math.floor(char.level || summaryEntry.levelAfter));
+        }
         if (xp > 0) {
             logMessage(`${char.name} gagne ${xp} XP.`);
         }
     });
-    grantLootFromDefeatedMonsters(defeatedMonsters);
-    dungeon.getCurrentRoom().type = 'empty';
+
+    const lootedItems = grantLootFromDefeatedMonsters(defeatedMonsters);
+    const damageByCharacter = snapshotCombatPerformanceByCharacter();
+    const completionResult = (dungeon && typeof dungeon.completeCurrentRoom === 'function')
+        ? dungeon.completeCurrentRoom()
+        : null;
+    if (completionResult && completionResult.clearedBoss) {
+        logMessage('Le boss est vaincu. Une nouvelle ascension commence.');
+    } else if (completionResult && completionResult.completed) {
+        logMessage('Le chemin vers le rang suivant est ouvert.');
+    } else {
+        const currentRoom = dungeon.getCurrentRoom();
+        if (currentRoom) {
+            currentRoom.type = 'empty';
+        }
+    }
     updateCharacterUI();
     updateMap();
-    endCombat();
+    render();
+    endCombat({ enableMovement: false, checkLevelUps: false, saveProgress: false });
+    showCombatSummaryModal({
+        defeatedMonstersCount: defeatedMonsters.length,
+        totalXpPerLivingHero: xp,
+        xpByCharacter,
+        damageByCharacter,
+        lootedItems
+    });
 }
 
 function getLootItemDisplayName(item) {
@@ -4152,12 +5068,12 @@ function grantLootFromDefeatedMonsters(defeatedMonsters) {
     }
 
     if (typeof getInventoryDropPool !== 'function' || typeof addItemToPartyInventory !== 'function') {
-        return;
+        return lootedItems;
     }
 
     const dropPool = getInventoryDropPool();
     if (!dropPool || dropPool.length === 0) {
-        return;
+        return lootedItems;
     }
 
     const isPotionItem = (item) => Boolean(
@@ -4194,7 +5110,7 @@ function grantLootFromDefeatedMonsters(defeatedMonsters) {
 
     if (lootedItems.length === 0) {
         logMessage('Aucun objet trouve sur les monstres.');
-        return;
+        return lootedItems;
     }
 
     const groupedLoot = {};
@@ -4209,11 +5125,251 @@ function grantLootFromDefeatedMonsters(defeatedMonsters) {
         .join(', ');
 
     logMessage(`Butin recupere: ${lootSummary}.`);
+    return lootedItems;
+}
+
+function getMapNodeCenterCoordinates(mapNodeElement) {
+    if (!mapNodeElement) {
+        return { x: 0, y: 0 };
+    }
+    return {
+        x: mapNodeElement.offsetLeft + (mapNodeElement.offsetWidth / 2),
+        y: mapNodeElement.offsetTop + (mapNodeElement.offsetHeight / 2)
+    };
+}
+
+function drawAscentPathConnections(mapDiv, rooms, roomElementsById, currentRoomId) {
+    if (!mapDiv || !Array.isArray(rooms) || rooms.length === 0 || !(roomElementsById instanceof Map) || roomElementsById.size === 0) {
+        return;
+    }
+
+    const roomById = new Map();
+    rooms.forEach((room) => {
+        if (!room || typeof room.id !== 'string' || room.id.length === 0) {
+            return;
+        }
+        roomById.set(room.id, room);
+    });
+
+    const contentWidth = Math.max(mapDiv.scrollWidth, mapDiv.clientWidth);
+    const contentHeight = Math.max(mapDiv.scrollHeight, mapDiv.clientHeight);
+    if (contentWidth <= 0 || contentHeight <= 0) {
+        return;
+    }
+
+    const svg = document.createElementNS(MAP_CONNECTION_SVG_NS, 'svg');
+    svg.classList.add('map-path-connections');
+    svg.setAttribute('width', String(contentWidth));
+    svg.setAttribute('height', String(contentHeight));
+    svg.setAttribute('viewBox', `0 0 ${contentWidth} ${contentHeight}`);
+    svg.setAttribute('aria-hidden', 'true');
+
+    rooms.forEach((sourceRoom) => {
+        if (!sourceRoom || typeof sourceRoom.id !== 'string' || !Array.isArray(sourceRoom.linksUp) || sourceRoom.linksUp.length === 0) {
+            return;
+        }
+        const sourceElement = roomElementsById.get(sourceRoom.id);
+        if (!sourceElement) {
+            return;
+        }
+        const sourceCenter = getMapNodeCenterCoordinates(sourceElement);
+
+        sourceRoom.linksUp.forEach((targetId) => {
+            const targetRoom = roomById.get(targetId);
+            const targetElement = roomElementsById.get(targetId);
+            if (!targetRoom || !targetElement) {
+                return;
+            }
+            const targetCenter = getMapNodeCenterCoordinates(targetElement);
+            const line = document.createElementNS(MAP_CONNECTION_SVG_NS, 'line');
+            line.classList.add('map-path-link');
+            line.setAttribute('x1', sourceCenter.x.toFixed(2));
+            line.setAttribute('y1', sourceCenter.y.toFixed(2));
+            line.setAttribute('x2', targetCenter.x.toFixed(2));
+            line.setAttribute('y2', targetCenter.y.toFixed(2));
+
+            const sourceIsCurrent = sourceRoom.id === currentRoomId;
+            const targetIsCurrent = targetRoom.id === currentRoomId;
+            const sourceVisiblePath = sourceRoom.cleared || sourceRoom.available || sourceIsCurrent;
+            const targetVisiblePath = targetRoom.cleared || targetRoom.available || targetIsCurrent;
+
+            if (sourceVisiblePath && targetVisiblePath) {
+                line.classList.add('map-path-link-active');
+            }
+            if (sourceRoom.cleared && targetRoom.cleared) {
+                line.classList.add('map-path-link-cleared');
+            }
+
+            svg.appendChild(line);
+        });
+    });
+
+    mapDiv.prepend(svg);
+}
+
+function centerAscentMapOnNodeIfNeeded(mapDiv, nodeElement, nodeKey) {
+    if (!mapDiv || !nodeElement || typeof nodeKey !== 'string' || nodeKey.length === 0) {
+        return;
+    }
+    if (lastCenteredAscentNodeKey === nodeKey) {
+        return;
+    }
+
+    const targetScrollTop = Math.max(
+        0,
+        Math.min(
+            mapDiv.scrollHeight - mapDiv.clientHeight,
+            nodeElement.offsetTop - ((mapDiv.clientHeight - nodeElement.offsetHeight) / 2)
+        )
+    );
+    const targetScrollLeft = Math.max(
+        0,
+        Math.min(
+            mapDiv.scrollWidth - mapDiv.clientWidth,
+            nodeElement.offsetLeft - ((mapDiv.clientWidth - nodeElement.offsetWidth) / 2)
+        )
+    );
+
+    mapDiv.scrollTop = targetScrollTop;
+    mapDiv.scrollLeft = targetScrollLeft;
+    lastCenteredAscentNodeKey = nodeKey;
 }
 
 function updateMap() {
     const mapDiv = document.getElementById('map');
     const mapTitle = document.getElementById('map-panel-title');
+    const controlsDiv = document.getElementById('controls');
+    if (!mapDiv) {
+        return;
+    }
+
+    if (isAscentPathMode()) {
+        if (controlsDiv) {
+            controlsDiv.style.display = 'none';
+        }
+        ['move-up', 'move-down', 'move-left', 'move-right', 'climb-stairs'].forEach((buttonId) => {
+            const button = document.getElementById(buttonId);
+            if (!button) {
+                return;
+            }
+            button.style.display = 'none';
+        });
+        if (mapTitle) {
+            mapTitle.textContent = `Carte d ascension - Niveau ${dungeon.currentFloor + 1}`;
+        }
+        mapDiv.innerHTML = '';
+        const floor = typeof dungeon.getFloorData === 'function' ? dungeon.getFloorData(dungeon.currentFloor) : null;
+        const rooms = typeof dungeon.getRoomsForFloor === 'function' ? dungeon.getRoomsForFloor(dungeon.currentFloor) : [];
+        const rows = Math.max(1, Math.floor(Number(floor && floor.rows) || 1));
+        const cols = Math.max(1, Math.floor(Number(floor && floor.cols) || 1));
+        const currentRoom = dungeon.getCurrentRoom();
+        const currentRoomId = currentRoom && typeof currentRoom.id === 'string' ? currentRoom.id : '';
+
+        mapDiv.style.setProperty('--map-cols', String(cols));
+        mapDiv.style.setProperty('--map-rows', String(rows));
+        mapDiv.style.setProperty('--map-cell-size', `${ASCENT_MAP_CELL_SIZE_PX}px`);
+        mapDiv.classList.add('map-ascent-path');
+        const roomElementsById = new Map();
+
+        rooms.forEach((room) => {
+            if (!room) {
+                return;
+            }
+            const roomDiv = document.createElement('div');
+            roomDiv.className = 'room map-node';
+            roomDiv.style.gridColumnStart = String(Math.max(1, room.x + 1));
+            roomDiv.style.gridRowStart = String(Math.max(1, rows - room.y));
+            roomDiv.dataset.roomId = typeof room.id === 'string' ? room.id : '';
+
+            if (room.id === currentRoomId) {
+                roomDiv.classList.add('map-node-current');
+            }
+            if (room.type === 'monster') {
+                roomDiv.classList.add('monster');
+            }
+            if (room.nodeType === 'rest' || room.type === 'rest') {
+                roomDiv.classList.add('rest');
+            }
+            if (room.nodeType === 'boss') {
+                roomDiv.classList.add('boss');
+            }
+            const bossTileImage = getBossNodeTileImage(room);
+            if (bossTileImage) {
+                roomDiv.style.setProperty('--tile-image', `url('${bossTileImage}')`);
+            }
+            if (room.cleared) {
+                roomDiv.classList.add('cleared');
+            }
+            if (room.available && !room.cleared) {
+                roomDiv.classList.add('available');
+            } else {
+                roomDiv.classList.add('locked');
+            }
+
+            const typeLabel = getRoomTypeDisplayLabel(room);
+            const stateLabel = room.cleared ? 'termine' : (room.available ? 'disponible' : 'verrouille');
+            const currentLabelSuffix = room.id === currentRoomId ? ' - actuel' : '';
+            roomDiv.title = `${typeLabel} - ${stateLabel}`;
+            roomDiv.setAttribute('aria-label', `${typeLabel} - ${stateLabel}${currentLabelSuffix}`);
+
+            if (room.nodeType === 'boss') {
+                roomDiv.textContent = '';
+            } else if (room.nodeType === 'rest' || room.type === 'rest') {
+                roomDiv.textContent = '';
+            } else if (room.cleared) {
+                roomDiv.textContent = 'OK';
+            } else if (room.type === 'monster' && room.monsterCount > 0) {
+                roomDiv.textContent = String(room.monsterCount);
+            } else {
+                roomDiv.textContent = '';
+            }
+
+            if (room.available && !room.cleared) {
+                roomDiv.tabIndex = 0;
+                roomDiv.classList.add('map-node-clickable');
+                roomDiv.addEventListener('click', () => {
+                    trySelectPathNode(room.id);
+                });
+                roomDiv.addEventListener('keydown', (event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') {
+                        return;
+                    }
+                    event.preventDefault();
+                    trySelectPathNode(room.id);
+                });
+            }
+
+            mapDiv.appendChild(roomDiv);
+            if (typeof room.id === 'string' && room.id.length > 0) {
+                roomElementsById.set(room.id, roomDiv);
+            }
+        });
+
+        drawAscentPathConnections(mapDiv, rooms, roomElementsById, currentRoomId);
+        const currentRoomElement = roomElementsById.get(currentRoomId);
+        if (currentRoomElement && currentRoomId) {
+            centerAscentMapOnNodeIfNeeded(mapDiv, currentRoomElement, `${dungeon.currentFloor}:${currentRoomId}`);
+        } else {
+            lastCenteredAscentNodeKey = '';
+        }
+        return;
+    }
+
+    ['move-up', 'move-down', 'move-left', 'move-right'].forEach((buttonId) => {
+        const button = document.getElementById(buttonId);
+        if (!button) {
+            return;
+        }
+        button.style.display = 'block';
+    });
+    if (controlsDiv) {
+        controlsDiv.style.display = 'grid';
+    }
+    mapDiv.classList.remove('map-ascent-path');
+    mapDiv.style.removeProperty('--map-cols');
+    mapDiv.style.removeProperty('--map-rows');
+    mapDiv.style.removeProperty('--map-cell-size');
+    lastCenteredAscentNodeKey = '';
     if (mapTitle) {
         mapTitle.textContent = `Plan de l'etage - Etage ${dungeon.currentFloor + 1}`;
     }
@@ -4266,17 +5422,35 @@ function render() {
     ctx.stroke();
 
     const room = dungeon.getCurrentRoom();
+    if (!room) {
+        return;
+    }
     const roomLabels = {
         empty: 'Exploration',
         monster: 'Presence hostile',
         rest: 'Zone de repos'
     };
+    const roomLabel = isAscentPathMode()
+        ? getRoomTypeDisplayLabel(room)
+        : (roomLabels[room.type] || 'Exploration');
 
     ctx.fillStyle = '#d8d8d8';
     ctx.font = 'bold 26px Arial';
-    ctx.fillText(roomLabels[room.type] || 'Exploration', 24, canvas.height - 54);
+    ctx.fillText(roomLabel, 24, canvas.height - 54);
 
-    if (room.hasStairs) {
+    if (isAscentPathMode()) {
+        const availableRooms = (typeof dungeon.getAvailableRoomsOnCurrentFloor === 'function')
+            ? dungeon.getAvailableRoomsOnCurrentFloor()
+            : [];
+        const floor = typeof dungeon.getFloorData === 'function' ? dungeon.getFloorData(dungeon.currentFloor) : null;
+        const totalRows = Math.max(1, Math.floor(Number(floor && floor.rows) || 1));
+        ctx.fillStyle = '#9eb7ff';
+        ctx.font = '18px Arial';
+        ctx.fillText(`Ascension ${dungeon.currentFloor + 1} - Rang ${room.y + 1}/${totalRows}`, 24, canvas.height - 24);
+        ctx.fillStyle = '#b9dfb3';
+        ctx.font = '15px Arial';
+        ctx.fillText(`Noeuds disponibles: ${availableRooms.length}`, 24, 38);
+    } else if (room.hasStairs) {
         ctx.fillStyle = '#f0a04a';
         ctx.font = '20px Arial';
         ctx.fillText('Escalier disponible', 24, canvas.height - 24);
@@ -4292,16 +5466,21 @@ function render() {
 }
 
 function setMovementEnabled(enabled) {
-    document.getElementById('move-up').disabled = !enabled;
-    document.getElementById('move-down').disabled = !enabled;
-    document.getElementById('move-left').disabled = !enabled;
-    document.getElementById('move-right').disabled = !enabled;
-    document.getElementById('climb-stairs').disabled = !enabled;
+    ['move-up', 'move-down', 'move-left', 'move-right', 'climb-stairs'].forEach((buttonId) => {
+        const button = document.getElementById(buttonId);
+        if (!button) {
+            return;
+        }
+        button.disabled = !enabled;
+    });
 }
 
 function isMovementLocked() {
+    if (isAscentPathMode()) {
+        return false;
+    }
     const moveUpButton = document.getElementById('move-up');
-    return !moveUpButton || moveUpButton.disabled;
+    return Boolean(moveUpButton && moveUpButton.disabled);
 }
 
 function getPartyPerceptionScore() {
@@ -4588,6 +5767,9 @@ function tryMoveParty(dx, dy) {
     if (!hasGameStarted) {
         return false;
     }
+    if (isAscentPathMode()) {
+        return false;
+    }
     if (chestEventActive) {
         return false;
     }
@@ -4601,7 +5783,9 @@ function tryMoveParty(dx, dy) {
     if (destinationRoom && destinationRoom.type === 'monster') {
         saveGameProgressIfPossible('before-combat-room');
     }
-    rollPerceptionEventOnMove();
+    if (!isAscentPathMode()) {
+        rollPerceptionEventOnMove();
+    }
     if (isGameOver) {
         return true;
     }
@@ -4619,24 +5803,41 @@ function isTypingInInput(target) {
 }
 
 // Event listeners
-document.getElementById('move-up').addEventListener('click', () => {
-    tryMoveParty(0, -1);
-});
+const moveUpButton = document.getElementById('move-up');
+if (moveUpButton) {
+    moveUpButton.addEventListener('click', () => {
+        tryMoveParty(0, -1);
+    });
+}
 
-document.getElementById('move-down').addEventListener('click', () => {
-    tryMoveParty(0, 1);
-});
+const moveDownButton = document.getElementById('move-down');
+if (moveDownButton) {
+    moveDownButton.addEventListener('click', () => {
+        tryMoveParty(0, 1);
+    });
+}
 
-document.getElementById('move-left').addEventListener('click', () => {
-    tryMoveParty(-1, 0);
-});
+const moveLeftButton = document.getElementById('move-left');
+if (moveLeftButton) {
+    moveLeftButton.addEventListener('click', () => {
+        tryMoveParty(-1, 0);
+    });
+}
 
-document.getElementById('move-right').addEventListener('click', () => {
-    tryMoveParty(1, 0);
-});
+const moveRightButton = document.getElementById('move-right');
+if (moveRightButton) {
+    moveRightButton.addEventListener('click', () => {
+        tryMoveParty(1, 0);
+    });
+}
 
 window.addEventListener('keydown', (event) => {
     if (event.defaultPrevented || isTypingInInput(event.target) || isMovementLocked()) {
+        return;
+    }
+    if (isAscentPathMode()
+        && (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        event.preventDefault();
         return;
     }
 
@@ -4669,25 +5870,36 @@ if (openBestiaryButton) {
     });
 }
 
-document.getElementById('climb-stairs').addEventListener('click', () => {
-    if (isGameOver) {
-        return;
-    }
-    if (chestEventActive) {
-        return;
-    }
-    if (dungeon.climbStairs()) {
-        currentMonsters = [];
-        summonedAllies = [];
-        updateUI();
-        render();
-        logMessage('Vous montez Ã  l\'Ã©tage suivant!');
-    } else {
-        logMessage('Pas d\'escalier ici.');
-    }
-});
+const climbStairsButton = document.getElementById('climb-stairs');
+if (climbStairsButton) {
+    climbStairsButton.addEventListener('click', () => {
+        if (isAscentPathMode()) {
+            logMessage('Il n y a pas d escalier: choisissez un noeud disponible sur la carte.');
+            return;
+        }
+        if (isGameOver) {
+            return;
+        }
+        if (chestEventActive) {
+            return;
+        }
+        if (dungeon.climbStairs()) {
+            currentMonsters = [];
+            summonedAllies = [];
+            updateUI();
+            render();
+            logMessage('Vous montez Ã  l\'Ã©tage suivant!');
+        } else {
+            logMessage('Pas d\'escalier ici.');
+        }
+    });
+}
 
 document.getElementById('rest').addEventListener('click', () => {
+    if (isAscentPathMode()) {
+        logMessage('Le repos se fait maintenant via les noeuds de repos de la carte.');
+        return;
+    }
     if (isGameOver) {
         return;
     }
@@ -4889,6 +6101,13 @@ const gameOverRestartButton = document.getElementById('game-over-restart');
 if (gameOverRestartButton) {
     gameOverRestartButton.addEventListener('click', () => {
         window.location.reload();
+    });
+}
+
+const combatSummaryContinueButton = document.getElementById('combat-summary-continue');
+if (combatSummaryContinueButton) {
+    combatSummaryContinueButton.addEventListener('click', () => {
+        finishCombatSummaryFlow();
     });
 }
 

@@ -131,6 +131,7 @@ const CLASS_XP_PER_LEVEL = {
     Druid: 150,
     default: 140
 };
+const LEVEL_UP_XP_REQUIREMENT_MULTIPLIER = 1.1;
 const CLASS_PRIMARY_STATS = {
     Warrior: { strength: 8, intelligence: 2, vitality: 8, perception: 4, magic: 1 },
     Rogue: { strength: 7, intelligence: 3, vitality: 6, perception: 8, magic: 2 },
@@ -1392,7 +1393,10 @@ class Character {
 
         const rawDamage = this.rollPhysicalWeaponDamage('Coup de mort', 4);
         const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
-        const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
+        const damage = monster.takeDamage(criticalOutcome.damage, {
+            damageType: 'physical',
+            attacker: this
+        });
         const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
         this.clearCoupDeMortFollowUp();
         if (typeof window.playRandomSwordHit === 'function') {
@@ -1622,6 +1626,7 @@ class Character {
         const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
         const damage = attacker.takeDamage(criticalOutcome.damage, {
             damageType: 'physical',
+            attacker: this,
             ignoreRiposte: true
         });
         const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
@@ -2083,8 +2088,13 @@ class Character {
     }
 
     performAction(action, monster, target) {
-        const currentAttack = this.getCurrentAttack();
-        const applyWeaponContactEffects = () => {
+        const previousCombatDamageSource = typeof window !== 'undefined' ? window.__combatDamageSource : null;
+        if (typeof window !== 'undefined') {
+            window.__combatDamageSource = this;
+        }
+        try {
+            const currentAttack = this.getCurrentAttack();
+            const applyWeaponContactEffects = () => {
             if (!monster) {
                 return '';
             }
@@ -2732,6 +2742,11 @@ class Character {
         const contactEffectText = applyWeaponContactEffects();
         playMeleeHitSound(0.9);
         return `${this.name} attaque pour ${damage} degats.${criticalText}${elementalText}${contactEffectText}`;
+        } finally {
+            if (typeof window !== 'undefined') {
+                window.__combatDamageSource = previousCombatDamageSource;
+            }
+        }
     }
 
     getXpPerLevel() {
@@ -2743,7 +2758,8 @@ class Character {
     }
 
     getExperienceNeededForNextLevel() {
-        return Math.max(1, this.level * this.getXpPerLevel());
+        const baseXpRequirement = this.level * this.getXpPerLevel();
+        return Math.max(1, Math.ceil(baseXpRequirement * LEVEL_UP_XP_REQUIREMENT_MULTIPLIER));
     }
 
     getExperienceProgressText() {
@@ -2974,6 +2990,9 @@ class Character {
         this.health -= finalDamage;
         if (finalDamage > 0 && typeof window.queueDamageFlash === 'function') {
             window.queueDamageFlash(this, finalDamage);
+        }
+        if (finalDamage > 0 && typeof window.recordCombatDamageEvent === 'function') {
+            window.recordCombatDamageEvent(this, finalDamage, normalizedOptions);
         }
         if (finalDamage > 0 && this.health > 0 && normalizedOptions.enableRiposte === true && !normalizedOptions.ignoreRiposte) {
             const riposteOutcome = this.triggerRiposte(normalizedOptions.attacker, { suppressLog: true });

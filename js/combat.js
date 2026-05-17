@@ -3,6 +3,7 @@ const MONSTER_DATA = {
     goblin: {
         id: 'goblin',
         name: 'Goblin',
+        monsterLevel: 1,
         health: 30,
         attack: 8,
         defense: 2,
@@ -13,6 +14,7 @@ const MONSTER_DATA = {
     orc: {
         id: 'orc',
         name: 'Orc',
+        monsterLevel: 2,
         health: 50,
         attack: 12,
         defense: 4,
@@ -24,6 +26,7 @@ const MONSTER_DATA = {
     troll: {
         id: 'troll',
         name: 'Troll',
+        monsterLevel: 3,
         health: 80,
         attack: 15,
         defense: 6,
@@ -35,6 +38,7 @@ const MONSTER_DATA = {
     shaman: {
         id: 'shaman',
         name: 'Shaman gobelin',
+        monsterLevel: 2,
         health: 42,
         attack: 7,
         defense: 3,
@@ -52,6 +56,7 @@ const MONSTER_DATA = {
     kobold: {
         id: 'kobold',
         name: 'Kobold',
+        monsterLevel: 1,
         health: 19,
         attack: 9,
         defense: 2,
@@ -63,6 +68,7 @@ const MONSTER_DATA = {
     kobold_chief: {
         id: 'kobold_chief',
         name: 'Chef kobold',
+        monsterLevel: 4,
         health: 47,
         attack: 13,
         defense: 5,
@@ -75,9 +81,76 @@ const MONSTER_DATA = {
         image: 'Images/ChefKobold.png',
         abilities: ['Appel de renforts: +2 kobolds tous les 2 tours', 'Attaque basique lourde']
     },
+    dark_imp: {
+        id: 'dark_imp',
+        name: 'Imp des tenebres',
+        monsterLevel: 2,
+        health: 44,
+        attack: 9,
+        defense: 2,
+        role: 'dark_imp',
+        infernalSparkDamage: 8,
+        curseWeakenAmount: 2,
+        curseWeakenTurns: 2,
+        deathExplosionFireDamage: 7,
+        damageResistances: { fire: 15, ice: -10 },
+        image: 'Images/ImpTenebre.png',
+        abilities: [
+            'Griffe sombre (petite attaque melee)',
+            'Etincelle infernale (petits degats de feu a distance)',
+            'Ricanement maudit (Affaibli sur un heros)',
+            'Explosion finale (petits degats de feu a sa mort)'
+        ]
+    },
+    cultist: {
+        id: 'cultist',
+        name: 'Cultiste',
+        monsterLevel: 3,
+        health: 48,
+        attack: 8,
+        defense: 3,
+        role: 'cultist',
+        healPower: 12,
+        curseWeakenAmount: 2,
+        curseWeakenTurns: 2,
+        lifeDrainDamage: 7,
+        lifeDrainHealRatio: 0.55,
+        summonType: 'skeleton_weak',
+        summonCount: 1,
+        damageResistances: { magic: 10, poison: 12 },
+        image: 'Images/Cultiste.png',
+        abilities: [
+            'Dague rituelle (petite attaque physique)',
+            'Malediction (Affaibli sur un heros)',
+            'Drain mineur (vole un peu de vie)',
+            'Soin impie (soigne un allie)',
+            'Appel des ombres (invoque un squelette faible)'
+        ]
+    },
+    minor_specter: {
+        id: 'minor_specter',
+        name: 'Spectre mineur',
+        monsterLevel: 3,
+        health: 46,
+        attack: 7,
+        defense: 3,
+        role: 'minor_specter',
+        curseWeakenAmount: 2,
+        curseWeakenTurns: 2,
+        lifeDrainDamage: 6,
+        lifeDrainHealRatio: 0.5,
+        damageResistances: { physical: 35, poison: 90 },
+        image: 'Images/SpectreMineur.png',
+        abilities: [
+            'Toucher spectral (petite attaque magique)',
+            'Drain mineur (inflige des degats et se soigne)',
+            'Frisson d outre-tombe (Affaibli)'
+        ]
+    },
     green_slime: {
         id: 'green_slime',
         name: 'Slime verte',
+        monsterLevel: 5,
         isBoss: true,
         health: 78,
         attack: 8,
@@ -95,6 +168,7 @@ const MONSTER_DATA = {
     ice_golem: {
         id: 'ice_golem',
         name: 'Golem de glace',
+        monsterLevel: 6,
         isBoss: true,
         health: 180,
         attack: 18,
@@ -109,6 +183,7 @@ const MONSTER_DATA = {
     fire_golem: {
         id: 'fire_golem',
         name: 'Golem de feu',
+        monsterLevel: 7,
         isBoss: true,
         health: 220,
         attack: 20,
@@ -124,6 +199,7 @@ const MONSTER_DATA = {
     spectral_knight: {
         id: 'spectral_knight',
         name: 'Chevalier spectrale',
+        monsterLevel: 8,
         isBoss: true,
         health: 280,
         attack: 13,
@@ -140,6 +216,7 @@ const MONSTER_DATA = {
     spider_queen: {
         id: 'spider_queen',
         name: 'Reine araignee',
+        monsterLevel: 9,
         isBoss: true,
         health: 340,
         attack: 16,
@@ -168,6 +245,7 @@ const MONSTER_DATA = {
     spider: {
         id: 'spider',
         name: 'Araignee',
+        monsterLevel: 2,
         health: 56,
         attack: 11,
         defense: 4,
@@ -182,6 +260,7 @@ const MONSTER_DATA = {
     spiderling: {
         id: 'spiderling',
         name: 'Bebe araignee',
+        monsterLevel: 1,
         health: 20,
         attack: 7,
         defense: 1,
@@ -189,20 +268,36 @@ const MONSTER_DATA = {
         damageResistances: { poison: 10 },
         image: 'Images/Spider.png',
         abilities: ['Attaque basique rapide']
+    },
+    skeleton_weak: {
+        id: 'skeleton_weak',
+        name: 'Squelette invoque',
+        monsterLevel: 1,
+        health: 16,
+        attack: 6,
+        defense: 1,
+        role: 'skeleton_minion',
+        damageResistances: { poison: 30 },
+        image: 'Images/Skelette.png',
+        abilities: ['Attaque basique faible']
     }
 };
-const MONSTER_SPAWN_POOL = ['goblin', 'orc', 'troll', 'spider'];
+const MONSTER_SPAWN_POOL = ['goblin', 'orc', 'troll', 'spider', 'dark_imp', 'cultist', 'minor_specter'];
 const MONSTER_FORCE_KEY_BY_TYPE = {
     shaman: 'shaman',
     kobold: 'kobold',
     kobold_chief: 'kobold_chief',
+    dark_imp: 'dark_imp',
+    cultist: 'cultist',
+    minor_specter: 'minor_specter',
     green_slime: 'green_slime',
     ice_golem: 'ice_golem',
     fire_golem: 'fire_golem',
     spectral_knight: 'spectral_knight',
     spider_queen: 'spider_queen',
     spider: 'spider',
-    spiderling: 'spiderling'
+    spiderling: 'spiderling',
+    skeleton_weak: 'skeleton_weak'
 };
 const MONSTER_BESTIARY = Object.values(MONSTER_DATA).map((template) => ({
     key: template.id,
@@ -239,6 +334,9 @@ const DAMAGE_RESISTANCE_MIN = -100;
 const DAMAGE_RESISTANCE_MAX = 90;
 const MONSTER_HEALTH_VARIANCE_MIN = 0.9;
 const MONSTER_HEALTH_VARIANCE_MAX = 1.1;
+const DEFAULT_MONSTER_LEVEL = 1;
+const MIN_MONSTER_LEVEL = 1;
+const MAX_MONSTER_LEVEL = 99;
 
 function hasExplicitHealthOverride(overrides) {
     return Boolean(
@@ -264,6 +362,15 @@ function shouldApplyMonsterHealthVariance(template, mergedOptions, overrides) {
 function rollMonsterHealthVarianceMultiplier() {
     const spread = MONSTER_HEALTH_VARIANCE_MAX - MONSTER_HEALTH_VARIANCE_MIN;
     return MONSTER_HEALTH_VARIANCE_MIN + (Math.random() * spread);
+}
+
+function normalizeMonsterLevel(rawLevel, fallbackLevel = DEFAULT_MONSTER_LEVEL) {
+    const fallback = Math.max(MIN_MONSTER_LEVEL, Math.min(MAX_MONSTER_LEVEL, Math.floor(Number(fallbackLevel) || DEFAULT_MONSTER_LEVEL)));
+    const numericLevel = Number(rawLevel);
+    if (!Number.isFinite(numericLevel)) {
+        return fallback;
+    }
+    return Math.max(MIN_MONSTER_LEVEL, Math.min(MAX_MONSTER_LEVEL, Math.floor(numericLevel)));
 }
 
 function calculateDamageWithArmor(rawDamage, armorValue) {
@@ -326,6 +433,13 @@ function createMonsterFromTemplate(template, overrides = {}) {
         ...template,
         ...(overrides || {})
     };
+    const mergedMonsterLevel = normalizeMonsterLevel(
+        Object.prototype.hasOwnProperty.call(mergedOptions, 'monsterLevel')
+            ? mergedOptions.monsterLevel
+            : mergedOptions.level,
+        template && template.monsterLevel
+    );
+    mergedOptions.monsterLevel = mergedMonsterLevel;
     const mergedName = typeof mergedOptions.name === 'string' ? mergedOptions.name : template.name;
     const mergedHealth = Number(mergedOptions.health);
     const mergedAttack = Number(mergedOptions.attack);
@@ -348,6 +462,10 @@ class Monster {
         this.name = name;
         this.monsterType = typeof options.id === 'string' ? options.id : '';
         this.isBossMonster = Boolean(options.isBoss);
+        const rawMonsterLevel = Object.prototype.hasOwnProperty.call(options, 'monsterLevel')
+            ? options.monsterLevel
+            : options.level;
+        this.monsterLevel = normalizeMonsterLevel(rawMonsterLevel, DEFAULT_MONSTER_LEVEL);
         this.health = health;
         this.maxHealth = health;
         this.attack = attack;
@@ -381,6 +499,10 @@ class Monster {
         this.weakenPower = options.weakenPower || 0;
         this.weakenManaCost = Math.max(0, Math.floor(options.weakenManaCost || 0));
         this.weakenTurns = options.weakenTurns || 0;
+        this.infernalSparkDamage = Math.max(0, Math.floor(options.infernalSparkDamage || 0));
+        this.curseWeakenAmount = Math.max(0, Math.floor(options.curseWeakenAmount || 0));
+        this.curseWeakenTurns = Math.max(0, Math.floor(options.curseWeakenTurns || 0));
+        this.deathExplosionFireDamage = Math.max(0, Math.floor(options.deathExplosionFireDamage || 0));
         this.webTurns = options.webTurns || 0;
         this.spawnIntervalTurns = options.spawnIntervalTurns || 0;
         this.spawnCountdownTurns = options.spawnCountdownTurns || this.spawnIntervalTurns || 0;
@@ -515,6 +637,9 @@ class Monster {
         if (finalDamage > 0 && typeof window.queueDamageFlash === 'function') {
             window.queueDamageFlash(this, finalDamage);
         }
+        if (finalDamage > 0 && typeof window.recordCombatDamageEvent === 'function') {
+            window.recordCombatDamageEvent(this, finalDamage, normalizedOptions);
+        }
         if (this.health <= 0) {
             this.health = 0;
             if (wasAliveBeforeHit && finalDamage > 0 && typeof window.playSoundEffect === 'function') {
@@ -572,8 +697,28 @@ class Monster {
         return this.role === 'spider_queen';
     }
 
+    isDarkImp() {
+        return this.role === 'dark_imp';
+    }
+
+    isCultist() {
+        return this.role === 'cultist';
+    }
+
+    isSkeletonMinion() {
+        return this.role === 'skeleton_minion';
+    }
+
+    isMinorSpecter() {
+        return this.role === 'minor_specter';
+    }
+
     isBoss() {
         return this.isBossMonster;
+    }
+
+    getMonsterLevel() {
+        return this.monsterLevel;
     }
 
     canUseDeathCry() {

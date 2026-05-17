@@ -11,7 +11,7 @@
         <div id="splash-content">
             <h1>Eye of Beholder</h1>
             <p id="splash-version">Version 0.7</p>
-            <p>Montez les 10 etages pour vaincre le Balrog.</p>
+            <p>Tracez votre chemin dans l ascension et terrassez les boss.</p>
             <p id="splash-party-instructions">Choisissez 3 personnages pour former votre groupe.</p>
             <div id="splash-party-selection"></div>
             <p id="splash-party-status"></p>
@@ -26,10 +26,6 @@
                     <h3 id="map-panel-title">Plan de l'etage</h3>
                     <div id="map"></div>
                     <div id="controls">
-                        <button id="move-up">Haut</button>
-                        <button id="move-down">Bas</button>
-                        <button id="move-left">Gauche</button>
-                        <button id="move-right">Droite</button>
                         <button id="climb-stairs">Monter Escalier</button>
                         <button id="rest">Se Reposer</button>
                     </div>
@@ -111,6 +107,14 @@
             <h2>Game Over</h2>
             <p>Tous les heros sont morts. L aventure est terminee.</p>
             <button id="game-over-restart" type="button">Recommencer</button>
+        </div>
+    </div>
+    <div id="combat-summary-modal" style="display: none;">
+        <div id="combat-summary-content">
+            <h2>Victoire</h2>
+            <div id="combat-summary-subtitle"></div>
+            <div id="combat-summary-sections"></div>
+            <button id="combat-summary-continue" type="button">Continuer</button>
         </div>
     </div>
     <script src="js/character.js"></script>
