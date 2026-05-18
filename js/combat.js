@@ -19,7 +19,7 @@ const MONSTER_DATA = {
         attack: 12,
         defense: 4,
         role: 'fighter',
-        damageResistances: { physical: 8 },
+        damageResistances: { physical: 8, bleed: 5 },
         image: 'Images/Orc.png',
         abilities: ['Attaque basique lourde']
     },
@@ -31,7 +31,7 @@ const MONSTER_DATA = {
         attack: 15,
         defense: 6,
         role: 'fighter',
-        damageResistances: { poison: 12 },
+        damageResistances: { poison: 12, bleed: 10 },
         image: 'Images/Troll.png',
         abilities: ['Attaque basique tres puissante']
     },
@@ -77,7 +77,7 @@ const MONSTER_DATA = {
         spawnCountdownTurns: 2,
         summonType: 'kobold',
         summonCount: 2,
-        damageResistances: { physical: 10, poison: 15 },
+        damageResistances: { physical: 10, poison: 15, bleed: 8 },
         image: 'Images/ChefKobold.png',
         abilities: ['Appel de renforts: +2 kobolds tous les 2 tours', 'Attaque basique lourde']
     },
@@ -93,7 +93,7 @@ const MONSTER_DATA = {
         curseWeakenAmount: 2,
         curseWeakenTurns: 2,
         deathExplosionFireDamage: 7,
-        damageResistances: { fire: 15, ice: -10 },
+        damageResistances: { fire: 15, ice: -10, bleed: 5 },
         image: 'Images/ImpTenebre.png',
         abilities: [
             'Griffe sombre (petite attaque melee)',
@@ -117,7 +117,7 @@ const MONSTER_DATA = {
         lifeDrainHealRatio: 0.55,
         summonType: 'skeleton_weak',
         summonCount: 1,
-        damageResistances: { magic: 10, poison: 12 },
+        damageResistances: { magic: 10, poison: 12, bleed: 6 },
         image: 'Images/Cultiste.png',
         abilities: [
             'Dague rituelle (petite attaque physique)',
@@ -139,7 +139,7 @@ const MONSTER_DATA = {
         curseWeakenTurns: 2,
         lifeDrainDamage: 6,
         lifeDrainHealRatio: 0.5,
-        damageResistances: { physical: 35, poison: 90 },
+        damageResistances: { physical: 35, poison: 90, bleed: 90 },
         image: 'Images/SpectreMineur.png',
         abilities: [
             'Toucher spectral (petite attaque magique)',
@@ -161,7 +161,7 @@ const MONSTER_DATA = {
         splitChildHealthScale: 0.6,
         splitChildAttackScale: 0.85,
         splitChildDefenseScale: 0.8,
-        damageResistances: { poison: 35, fire: -10 },
+        damageResistances: { poison: 35, fire: -10, bleed: 80 },
         image: 'Images/SlimeVerte.png',
         abilities: ['Division: se scinde en 2 a la mort', 'Les nouvelles slimes se divisent encore une fois']
     },
@@ -174,7 +174,7 @@ const MONSTER_DATA = {
         attack: 18,
         defense: 10,
         role: 'ice_golem',
-        damageResistances: { ice: 70, fire: -100 },
+        damageResistances: { ice: 70, fire: -100, bleed: 90 },
         weaponContactNumbTurns: 2,
         weaponContactDamageReductionMultiplier: 0.75,
         image: 'Images/GolemGlace.png',
@@ -189,7 +189,7 @@ const MONSTER_DATA = {
         attack: 20,
         defense: 12,
         role: 'fire_golem',
-        damageResistances: { fire: 75, ice: -25 },
+        damageResistances: { fire: 75, ice: -25, bleed: 90 },
         weaponContactFireDamage: 10,
         weaponContactBurnDamage: 6,
         weaponContactBurnTurns: 2,
@@ -205,7 +205,7 @@ const MONSTER_DATA = {
         attack: 13,
         defense: 16,
         role: 'spectral_knight',
-        damageResistances: { magic: 30, poison: 20 },
+        damageResistances: { magic: 30, poison: 20, bleed: 80 },
         attacksPerTurn: 2,
         deathCryDamage: 12,
         deathCryChance: 0.45,
@@ -222,7 +222,7 @@ const MONSTER_DATA = {
         attack: 16,
         defense: 14,
         role: 'spider_queen',
-        damageResistances: { poison: 70, fire: -10 },
+        damageResistances: { poison: 70, fire: -10, bleed: 15 },
         poisonCloudDamage: 10,
         poisonCloudChance: 0.34,
         poisonCloudInfectionChance: 0.5,
@@ -250,7 +250,7 @@ const MONSTER_DATA = {
         attack: 11,
         defense: 4,
         role: 'spider',
-        damageResistances: { poison: 25 },
+        damageResistances: { poison: 25, bleed: 10 },
         webTurns: 2,
         spawnIntervalTurns: 2,
         spawnCountdownTurns: 2,
@@ -265,9 +265,32 @@ const MONSTER_DATA = {
         attack: 7,
         defense: 1,
         role: 'spiderling',
-        damageResistances: { poison: 10 },
+        damageResistances: { poison: 10, bleed: 5 },
         image: 'Images/Spider.png',
         abilities: ['Attaque basique rapide']
+    },
+    rat: {
+        id: 'rat',
+        name: 'Rat',
+        monsterLevel: 1,
+        health: 18,
+        attack: 8,
+        defense: 1,
+        role: 'rat',
+        damageResistances: { bleed: -12, poison: 5 },
+        physicalDodgeChance: 0.28,
+        infectedBiteChance: 0.22,
+        infectedBiteDamage: 3,
+        infectedBiteTurns: 2,
+        deathPoisonOnKillerChance: 0.3,
+        deathPoisonOnKillerDamage: 4,
+        deathPoisonOnKillerTurns: 2,
+        image: 'Images/Rat.png',
+        abilities: [
+            'Esquive physique (chance d eviter un coup)',
+            'Morsure infectee (petite chance d infection)',
+            'Contagion de la mort (chance d infecter son tueur)'
+        ]
     },
     skeleton_weak: {
         id: 'skeleton_weak',
@@ -277,12 +300,12 @@ const MONSTER_DATA = {
         attack: 6,
         defense: 1,
         role: 'skeleton_minion',
-        damageResistances: { poison: 30 },
+        damageResistances: { poison: 30, bleed: 75 },
         image: 'Images/Skelette.png',
         abilities: ['Attaque basique faible']
     }
 };
-const MONSTER_SPAWN_POOL = ['goblin', 'orc', 'troll', 'spider', 'dark_imp', 'cultist', 'minor_specter'];
+const MONSTER_SPAWN_POOL = ['goblin', 'orc', 'troll', 'spider', 'dark_imp', 'cultist', 'minor_specter', 'rat'];
 const MONSTER_FORCE_KEY_BY_TYPE = {
     shaman: 'shaman',
     kobold: 'kobold',
@@ -297,6 +320,7 @@ const MONSTER_FORCE_KEY_BY_TYPE = {
     spider_queen: 'spider_queen',
     spider: 'spider',
     spiderling: 'spiderling',
+    rat: 'rat',
     skeleton_weak: 'skeleton_weak'
 };
 const MONSTER_BESTIARY = Object.values(MONSTER_DATA).map((template) => ({
@@ -311,13 +335,14 @@ const MONSTER_BESTIARY = Object.values(MONSTER_DATA).map((template) => ({
 }));
 // Higher value means armor mitigates less damage overall.
 const ARMOR_REDUCTION_SCALE = 20;
-const DAMAGE_TYPES = ['physical', 'magic', 'fire', 'ice', 'poison'];
+const DAMAGE_TYPES = ['physical', 'magic', 'fire', 'ice', 'poison', 'bleed'];
 const DAMAGE_TYPE_LABELS = {
     physical: 'Physique',
     magic: 'Magique',
     fire: 'Feu',
     ice: 'Glace',
-    poison: 'Poison'
+    poison: 'Poison',
+    bleed: 'Saignement'
 };
 const DAMAGE_TYPE_ALIASES = {
     physical: 'physical',
@@ -328,7 +353,9 @@ const DAMAGE_TYPE_ALIASES = {
     feu: 'fire',
     ice: 'ice',
     glace: 'ice',
-    poison: 'poison'
+    poison: 'poison',
+    bleed: 'bleed',
+    saignement: 'bleed'
 };
 const DAMAGE_RESISTANCE_MIN = -100;
 const DAMAGE_RESISTANCE_MAX = 90;
@@ -399,7 +426,8 @@ function createEmptyDamageResistanceMap() {
         magic: 0,
         fire: 0,
         ice: 0,
-        poison: 0
+        poison: 0,
+        bleed: 0
     };
 }
 
@@ -544,11 +572,27 @@ class Monster {
             : 0;
         this.summonType = typeof options.summonType === 'string' ? options.summonType : '';
         this.summonCount = Math.max(0, Math.floor(options.summonCount || 0));
+        this.physicalDodgeChance = Number.isFinite(options.physicalDodgeChance)
+            ? Math.max(0, Math.min(1, Number(options.physicalDodgeChance)))
+            : 0;
+        this.infectedBiteChance = Number.isFinite(options.infectedBiteChance)
+            ? Math.max(0, Math.min(1, Number(options.infectedBiteChance)))
+            : 0;
+        this.infectedBiteDamage = Math.max(0, Math.floor(options.infectedBiteDamage || 0));
+        this.infectedBiteTurns = Math.max(0, Math.floor(options.infectedBiteTurns || 0));
+        this.deathPoisonOnKillerChance = Number.isFinite(options.deathPoisonOnKillerChance)
+            ? Math.max(0, Math.min(1, Number(options.deathPoisonOnKillerChance)))
+            : 0;
+        this.deathPoisonOnKillerDamage = Math.max(0, Math.floor(options.deathPoisonOnKillerDamage || 0));
+        this.deathPoisonOnKillerTurns = Math.max(0, Math.floor(options.deathPoisonOnKillerTurns || 0));
+        this.lastAttackerEntity = null;
         this.stunnedTurns = 0;
         this.burnDamage = 0;
         this.burnTurns = 0;
         this.poisonDamage = 0;
         this.poisonTurns = 0;
+        this.bleedDamage = 0;
+        this.bleedStacks = 0;
         this.attackWeakenAmount = 0;
         this.attackWeakenTurns = 0;
         this.damageTakenVulnerabilityPercent = 0;
@@ -621,7 +665,24 @@ class Monster {
     takeDamage(damage, options = {}) {
         const wasAliveBeforeHit = this.health > 0;
         const normalizedOptions = options && typeof options === 'object' ? options : {};
+        const fallbackAttacker = (typeof window !== 'undefined' && window.__combatDamageSource)
+            ? window.__combatDamageSource
+            : null;
+        const attacker = normalizedOptions.attacker || fallbackAttacker || null;
+        const isDamageOverTime = Boolean(normalizedOptions.isDamageOverTime);
         const damageType = normalizeDamageType(normalizedOptions.damageType || 'physical');
+        if (
+            wasAliveBeforeHit
+            && damageType === 'physical'
+            && this.physicalDodgeChance > 0
+            && Math.random() < this.physicalDodgeChance
+        ) {
+            normalizedOptions.wasDodged = true;
+            if (typeof logMessage === 'function') {
+                logMessage(`${this.name} esquive le coup physique.`);
+            }
+            return 0;
+        }
         const resistancePercent = this.getDamageResistance(damageType);
         const baseDamage = resolveDamageWithType(damage, {
             armorValue: this.defense,
@@ -640,6 +701,9 @@ class Monster {
         if (finalDamage > 0 && typeof window.recordCombatDamageEvent === 'function') {
             window.recordCombatDamageEvent(this, finalDamage, normalizedOptions);
         }
+        if (finalDamage > 0 && attacker) {
+            this.lastAttackerEntity = attacker;
+        }
         if (this.health <= 0) {
             this.health = 0;
             if (wasAliveBeforeHit && finalDamage > 0 && typeof window.playSoundEffect === 'function') {
@@ -651,7 +715,8 @@ class Monster {
                 }, 180);
             }
             if (wasAliveBeforeHit && finalDamage > 0 && typeof window.handleMonsterDefeatPassiveEffects === 'function') {
-                window.handleMonsterDefeatPassiveEffects(this);
+                const deathAttacker = attacker || (isDamageOverTime ? this.lastAttackerEntity : null);
+                window.handleMonsterDefeatPassiveEffects(this, deathAttacker);
             }
         }
         return finalDamage;
@@ -711,6 +776,10 @@ class Monster {
 
     isMinorSpecter() {
         return this.role === 'minor_specter';
+    }
+
+    isRat() {
+        return this.role === 'rat';
     }
 
     isBoss() {
@@ -804,7 +873,10 @@ class Monster {
             return 0;
         }
 
-        const finalDamage = this.takeDamage(this.burnDamage, { damageType: 'fire' });
+        const finalDamage = this.takeDamage(this.burnDamage, {
+            damageType: 'fire',
+            isDamageOverTime: true
+        });
 
         this.burnTurns = Math.max(0, this.burnTurns - 1);
         if (this.burnTurns === 0) {
@@ -824,6 +896,31 @@ class Monster {
         };
     }
 
+    applyBleed(damage) {
+        const nextBleedDamage = Math.max(1, Math.floor(damage || 0));
+        this.bleedDamage += nextBleedDamage;
+        this.bleedStacks += 1;
+        return {
+            damage: this.bleedDamage,
+            stacks: this.bleedStacks
+        };
+    }
+
+    isBleeding() {
+        return this.bleedDamage > 0 && this.bleedStacks > 0;
+    }
+
+    consumeBleedTurn() {
+        if (!this.isBleeding() || !this.isAlive()) {
+            return 0;
+        }
+        return this.takeDamage(this.bleedDamage, {
+            damageType: 'bleed',
+            ignoreArmor: true,
+            isDamageOverTime: true
+        });
+    }
+
     isPoisoned() {
         return this.poisonDamage > 0 && this.poisonTurns > 0;
     }
@@ -833,7 +930,10 @@ class Monster {
             return 0;
         }
 
-        const finalDamage = this.takeDamage(this.poisonDamage, { damageType: 'poison' });
+        const finalDamage = this.takeDamage(this.poisonDamage, {
+            damageType: 'poison',
+            isDamageOverTime: true
+        });
 
         this.poisonTurns = Math.max(0, this.poisonTurns - 1);
         if (this.poisonTurns === 0) {

@@ -83,6 +83,8 @@ const RED_ROOM_EXTRA_DAMAGE_FIELDS = [
     'deathCryDamage',
     'poisonCloudDamage',
     'poisonCloudInfectionDamage',
+    'infectedBiteDamage',
+    'deathPoisonOnKillerDamage',
     'lifeDrainDamage',
     'weaponContactFireDamage',
     'weaponContactBurnDamage'
@@ -124,6 +126,7 @@ const MONSTER_PORTRAITS = {
     'Golem de feu': 'Images/GolemFeu.png',
     'Chevalier spectrale': 'Images/ChevalierSpectrale.png',
     'Reine araignee': 'Images/ReineAraignee.png',
+    Rat: 'Images/Rat.png',
     Araignee: 'Images/Spider.png',
     'Bebe araignee': 'Images/Spider.png',
     'Squelette invoque': 'Images/Skelette.png'
@@ -173,6 +176,7 @@ const INITIATIVE_BASE = {
         'Golem de feu': 8,
         'Chevalier spectrale': 10,
         'Reine araignee': 12,
+        Rat: 16,
         'Squelette invoque': 9
     }
 };
@@ -497,11 +501,14 @@ const ACTION_MANA_COSTS = Object.freeze({
     'Malediction funeste': 18,
     Protection: 16,
     'Soin de groupe': 22,
+    Purete: 18,
     'Dechainement d eclair': 26
 });
 const COMBAT_ACTION_ICON_PATHS = Object.freeze({
     Attaquer: 'Images/Action_Attaquer.png',
     'Coup d epee': 'Images/Action_Attaquer.png',
+    'Cri de guerre': 'Images/ActionCriDeGuerre.png',
+    'Frappe hemorragique': 'Images/Action_saignement.png',
     'Attaque rapide': 'Images/Action_Attaquer.png',
     'Attaque normale': 'Images/Action_AttaqueArc.png',
     'Attaque ciblee': 'Images/Action_Cible.png',
@@ -522,6 +529,7 @@ const COMBAT_ACTION_ICON_PATHS = Object.freeze({
     'Pluie de feu': 'Images/Action_Pluiedefeu.png',
     Protection: 'Images/Action_protection.png',
     'Soin de groupe': 'Images/Action_soinGroupe.png',
+    Purete: 'Images/Action_Purete.png',
     'Invocation de squelette': 'Images/Action_Squelette.png',
     'Invocation de totem': 'Images/Action_TotemVie.png',
     'Invocation de totem de mort': 'Images/Action_TotemMort.png',
@@ -532,6 +540,8 @@ const COMBAT_STATUS_ICON_PATHS = Object.freeze({
     fire: 'Images/Etat_feu.png',
     ice: 'Images/Etat_glace.png',
     poison: 'Images/Etat_poison.png',
+    bleeding: 'Images/Etat_poison.png',
+    warcry: 'Images/Etat_provoquer.png',
     weakened: 'Images/Etat_affaibli.png',
     marked: 'Images/Etat_marque.png',
     webbed: 'Images/Etat_toile.png',
@@ -609,6 +619,9 @@ function getCombatPortraitStatusEntries(entity, options = {}) {
     }
 
     if (treatAsMonster) {
+        if (typeof entity.isBleeding === 'function' && entity.isBleeding()) {
+            pushStatusEntry('bleeding', entity.bleedStacks, 'Saignement');
+        }
         if (typeof entity.isPoisoned === 'function' && entity.isPoisoned()) {
             pushStatusEntry('poison', entity.poisonTurns, 'Poison');
         }
@@ -644,6 +657,9 @@ function getCombatPortraitStatusEntries(entity, options = {}) {
     }
     if (typeof entity.hasProtectionShield === 'function' && entity.hasProtectionShield()) {
         pushStatusEntry('protection', entity.protectionShieldTurns, 'Protection');
+    }
+    if (typeof entity.hasWarCryBuff === 'function' && entity.hasWarCryBuff()) {
+        pushStatusEntry('warcry', entity.warCryTurns, 'Cri de guerre');
     }
     if (typeof entity.hasProvocationActive === 'function' && entity.hasProvocationActive()) {
         pushStatusEntry('provocation', entity.provocationTurns, 'Provocation');
@@ -721,8 +737,17 @@ function buildCombatActionHint(action, manaCost = 0, disabledReason = '', charac
     if (action === 'Fleche empoisonnee') {
         hintParts.push('Applique un poison (degats sur la duree)');
     }
+    if (action === 'Cri de guerre') {
+        hintParts.push('Augmente la defense et l initiative du groupe pendant 2 tours');
+    }
+    if (action === 'Frappe hemorragique') {
+        hintParts.push('Applique un saignement cumulatif permanent (jusqu a la fin du combat)');
+    }
     if (action === 'Dechainement d eclair') {
         hintParts.push('Lance 3 eclairs sur des cibles aleatoires');
+    }
+    if (action === 'Purete') {
+        hintParts.push('Retire les malus de la cible et restaure un peu de PV');
     }
     if (disabledReason) {
         hintParts.push(disabledReason);
@@ -1817,6 +1842,9 @@ function clearTemporaryCharacterStatesForRest(character) {
         character.protectionShieldTurns = 0;
         character.protectionShieldAppliedThisTurn = false;
     }
+    if (typeof character.clearWarCryBuff === 'function') {
+        character.clearWarCryBuff();
+    }
 }
 
 function applyRestorationToParty(options = {}) {
@@ -2370,8 +2398,52 @@ function triggerDarkImpDeathExplosion(defeatedMonster) {
     return true;
 }
 
-function handleMonsterDefeatPassiveEffects(defeatedMonster) {
+function triggerRatDeathPoison(defeatedMonster, attackerEntity = null) {
+    if (
+        !defeatedMonster
+        || typeof defeatedMonster.isRat !== 'function'
+        || !defeatedMonster.isRat()
+    ) {
+        return false;
+    }
+
+    const poisonChance = Number.isFinite(defeatedMonster.deathPoisonOnKillerChance)
+        ? Math.max(0, Math.min(1, Number(defeatedMonster.deathPoisonOnKillerChance)))
+        : 0;
+    const poisonDamage = Math.max(1, Math.floor(defeatedMonster.deathPoisonOnKillerDamage || 0));
+    const poisonTurns = Math.max(1, Math.floor(defeatedMonster.deathPoisonOnKillerTurns || 0));
+    if (poisonChance <= 0 || poisonDamage <= 0 || poisonTurns <= 0) {
+        return false;
+    }
+
+    const fallbackAttacker = (typeof window !== 'undefined' && window.__combatDamageSource)
+        ? window.__combatDamageSource
+        : null;
+    const killer = attackerEntity || fallbackAttacker || null;
+    if (
+        !killer
+        || killer.entityType !== 'character'
+        || typeof killer.isAlive !== 'function'
+        || !killer.isAlive()
+        || typeof killer.applyInfection !== 'function'
+    ) {
+        return false;
+    }
+    if (Math.random() >= poisonChance) {
+        return false;
+    }
+
+    killer.applyInfection(poisonDamage, poisonTurns);
+    const turnLabel = poisonTurns > 1 ? 'tours' : 'tour';
+    logMessage(
+        `${defeatedMonster.name} relache des fluides infectes en mourant: ${killer.name} est infecte (${poisonDamage} degats/tour, ${poisonTurns} ${turnLabel}).`
+    );
+    return true;
+}
+
+function handleMonsterDefeatPassiveEffects(defeatedMonster, attackerEntity = null) {
     triggerDarkImpDeathExplosion(defeatedMonster);
+    triggerRatDeathPoison(defeatedMonster, attackerEntity);
 
     if (!defeatedMonster || !Array.isArray(characters) || characters.length === 0) {
         return;
@@ -2477,6 +2549,33 @@ function rollInitiative(entity) {
     return getEntityInitiativeBase(entity) + Math.floor(Math.random() * 10) + 1;
 }
 
+function compareCombatInitiative(left, right) {
+    const leftInitiative = typeof left.combatInitiative === 'number' ? left.combatInitiative : 0;
+    const rightInitiative = typeof right.combatInitiative === 'number' ? right.combatInitiative : 0;
+    if (rightInitiative !== leftInitiative) {
+        return rightInitiative - leftInitiative;
+    }
+    if (left.entityType !== right.entityType) {
+        return left.entityType === 'character' ? -1 : 1;
+    }
+    return left.entityId.localeCompare(right.entityId);
+}
+
+function resortCombatTurnOrderAfterInitiativeShift(activeEntity = null) {
+    if (!Array.isArray(combatTurnOrder) || combatTurnOrder.length === 0) {
+        return;
+    }
+    const normalizedActiveEntity = activeEntity || null;
+    combatTurnOrder.sort(compareCombatInitiative);
+    if (!normalizedActiveEntity) {
+        return;
+    }
+    const activeIndex = combatTurnOrder.indexOf(normalizedActiveEntity);
+    if (activeIndex >= 0) {
+        combatTurnCursor = activeIndex;
+    }
+}
+
 function buildCombatTurnOrder() {
     const participants = [
         ...getAliveCharacters(),
@@ -2488,15 +2587,7 @@ function buildCombatTurnOrder() {
         entity.combatInitiative = rollInitiative(entity);
     });
 
-    participants.sort((a, b) => {
-        if (b.combatInitiative !== a.combatInitiative) {
-            return b.combatInitiative - a.combatInitiative;
-        }
-        if (a.entityType !== b.entityType) {
-            return a.entityType === 'character' ? -1 : 1;
-        }
-        return a.entityId.localeCompare(b.entityId);
-    });
+    participants.sort(compareCombatInitiative);
 
     combatTurnOrder = participants;
     combatTurnCursor = 0;
@@ -2594,6 +2685,7 @@ window.summonSkeletonForCharacter = summonSkeletonForCharacter;
 window.summonTotemForCharacter = summonTotemForCharacter;
 window.summonDeathTotemForCharacter = summonDeathTotemForCharacter;
 window.handleMonsterDefeatPassiveEffects = handleMonsterDefeatPassiveEffects;
+window.resortCombatTurnOrderAfterInitiativeShift = resortCombatTurnOrderAfterInitiativeShift;
 window.playSoundEffect = function playSoundEffect(effectKey, options = {}) {
     const baseAudio = soundEffectBank[effectKey];
     if (!baseAudio) {
@@ -3129,6 +3221,9 @@ function updateCombatUI() {
         }
         const roleText = roleTags.length > 0 ? ` | ${roleTags.join(', ')}` : '';
         const stunText = (typeof m.isStunned === 'function' && m.isStunned()) ? ` | Etourdi: ${m.stunnedTurns} tours` : '';
+        const bleedText = (typeof m.isBleeding === 'function' && m.isBleeding())
+            ? ` | Saignement: ${m.bleedDamage}/tour (${Math.max(1, Math.floor(m.bleedStacks || 1))} cumuls)`
+            : '';
         const burnText = (typeof m.isBurning === 'function' && m.isBurning()) ? ` | Brulure: ${m.burnTurns} tours` : '';
         const poisonText = (typeof m.isPoisoned === 'function' && m.isPoisoned()) ? ` | Poison: ${m.poisonTurns} tours` : '';
         const markedText = (typeof m.isMarked === 'function' && m.isMarked())
@@ -3142,7 +3237,7 @@ function updateCombatUI() {
             ? ` | Mana: ${m.mana}/${m.maxMana}`
             : '';
         const portraitPath = getMonsterPortraitPath(m);
-        const effectTextFallback = portraitPath ? '' : `${stunText}${burnText}${poisonText}${markedText}${weakenText}`;
+        const effectTextFallback = portraitPath ? '' : `${stunText}${bleedText}${burnText}${poisonText}${markedText}${weakenText}`;
         const damageEvent = consumeDamageEvent(m);
         const portraitClass = `combat-monster-portrait${damageEvent.shouldAnimate ? ' damage-hit' : ''}`;
         const damageNumberHtml = damageEvent.damageAmount > 0
@@ -3197,6 +3292,14 @@ function updateCombatUI() {
 
             if (action === 'Assomer' && typeof activeChar.canUseAssomer === 'function' && !activeChar.canUseAssomer()) {
                 disabledReason = `Recharge: ${activeChar.assomerCooldownTurns} tours`;
+            }
+
+            if (action === 'Cri de guerre' && typeof activeChar.canUseCriDeGuerre === 'function' && !activeChar.canUseCriDeGuerre()) {
+                disabledReason = `Recharge: ${activeChar.criDeGuerreCooldownTurns} tours`;
+            }
+
+            if (action === 'Frappe hemorragique' && typeof activeChar.canUseFrappeHemorragique === 'function' && !activeChar.canUseFrappeHemorragique()) {
+                disabledReason = `Recharge: ${activeChar.frappeHemorragiqueCooldownTurns} tours`;
             }
 
             if (action === 'Provocation' && typeof activeChar.canUseProvocation === 'function' && !activeChar.canUseProvocation()) {
@@ -3254,6 +3357,8 @@ function updateCombatUI() {
             // Route non-attack actions to their dedicated handlers
             if (action === 'Protection' && activeChar.classType === 'Druid') {
                 btn.addEventListener('click', () => showProtectionTargetSelection(activeChar));
+            } else if (action === 'Purete' && activeChar.classType === 'Druid') {
+                btn.addEventListener('click', () => showPureteTargetSelection(activeChar));
             } else if (
                 (action === 'Invocation de totem' || action === 'Invocation de totem de mort')
                 && activeChar.classType === 'Druid'
@@ -3261,7 +3366,7 @@ function updateCombatUI() {
                 btn.addEventListener('click', () => handleCombatAction(action));
             } else if (action === 'Soin de groupe' && activeChar.classType === 'Druid') {
                 btn.addEventListener('click', () => handleCombatAction(action));
-            } else if (action === 'Garde du fer' || action === 'Evasion' || action === 'Dechainement d eclair' || action === 'Provocation') {
+            } else if (action === 'Garde du fer' || action === 'Evasion' || action === 'Dechainement d eclair' || action === 'Provocation' || action === 'Cri de guerre') {
                 btn.addEventListener('click', () => handleCombatAction(action));
             } else if (action === 'Invocation de squelette' && activeChar.classType === 'Necromancer') {
                 btn.addEventListener('click', () => handleCombatAction(action));
@@ -3376,6 +3481,10 @@ function updateCombatUI() {
         const miniProtectionText = typeof ally.getProtectionStatusText === 'function' ? ally.getProtectionStatusText() : '';
         if (!portraitPath && miniProtectionText) {
             miniStatuses.push(miniProtectionText);
+        }
+        const miniWarCryText = typeof ally.getWarCryStatusText === 'function' ? ally.getWarCryStatusText() : '';
+        if (!portraitPath && miniWarCryText) {
+            miniStatuses.push(miniWarCryText);
         }
         const miniProvocationText = typeof ally.getProvocationStatusText === 'function' ? ally.getProvocationStatusText() : '';
         if (!portraitPath && miniProvocationText) {
@@ -3553,6 +3662,19 @@ function performMonsterTurnEntity(monster) {
         return;
     }
 
+    if (typeof monster.consumeBleedTurn === 'function') {
+        const bleedDamage = monster.consumeBleedTurn();
+        if (bleedDamage > 0) {
+            const bleedStacks = Math.max(1, Math.floor(monster.bleedStacks || 1));
+            const stackLabel = bleedStacks > 1 ? 'cumuls' : 'cumul';
+            logMessage(`${monster.name} saigne et subit ${bleedDamage} degats (${bleedStacks} ${stackLabel}).`);
+            if (!monster.isAlive()) {
+                logMessage(`${monster.name} se vide de son sang.`);
+                return;
+            }
+        }
+    }
+
     if (typeof monster.consumeBurnTurn === 'function') {
         const burnDamage = monster.consumeBurnTurn();
         if (burnDamage > 0) {
@@ -3627,11 +3749,23 @@ function performMonsterTurnEntity(monster) {
     const usedDarkImpAction = (typeof monster.isDarkImp === 'function' && monster.isDarkImp())
         ? performDarkImpAction(monster, alliedTargets, aliveChars)
         : false;
+    const usedRatAction = (typeof monster.isRat === 'function' && monster.isRat())
+        ? performRatAction(monster, alliedTargets, aliveChars)
+        : false;
     if (typeof monster.isSpectralKnight === 'function' && monster.isSpectralKnight()) {
         performSpectralKnightAction(monster, aliveChars);
     }
 
-    if (!usedKoboldChiefAction && !usedSpiderAction && !usedShamanAction && !usedSpiderQueenAction && !usedCultistAction && !usedMinorSpecterAction && !usedDarkImpAction) {
+    if (
+        !usedKoboldChiefAction
+        && !usedSpiderAction
+        && !usedShamanAction
+        && !usedSpiderQueenAction
+        && !usedCultistAction
+        && !usedMinorSpecterAction
+        && !usedDarkImpAction
+        && !usedRatAction
+    ) {
         performMonsterBasicAttack(monster, alliedTargets);
     }
     applyMonsterTurnEffects(monster);
@@ -3821,6 +3955,76 @@ function showProtectionTargetSelection(activeChar) {
         button.textContent = `${targetCharacter.name} (${targetCharacter.health}/${targetCharacter.maxHealth})${protectionText}`;
         button.addEventListener('click', () => {
             const result = activeChar.performAction('Protection', null, targetCharacter);
+            logMessage(result);
+            finishCharacterAction(activeChar, false);
+        });
+        centerActions.appendChild(button);
+    });
+
+    const cancel = document.createElement('button');
+    cancel.textContent = 'Annuler';
+    cancel.addEventListener('click', () => {
+        updateCombatUI();
+    });
+    centerActions.appendChild(cancel);
+}
+
+function buildPureteDebuffSummary(targetCharacter) {
+    if (!targetCharacter) {
+        return 'Aucun malus';
+    }
+    const debuffs = [];
+    const weaknessText = typeof targetCharacter.getAttackWeaknessText === 'function'
+        ? targetCharacter.getAttackWeaknessText()
+        : '';
+    if (weaknessText) {
+        debuffs.push(weaknessText);
+    }
+    const webText = typeof targetCharacter.getWebStatusText === 'function'
+        ? targetCharacter.getWebStatusText()
+        : '';
+    if (webText) {
+        debuffs.push(webText);
+    }
+    const coldNumbText = typeof targetCharacter.getColdNumbStatusText === 'function'
+        ? targetCharacter.getColdNumbStatusText()
+        : '';
+    if (coldNumbText) {
+        debuffs.push(coldNumbText);
+    }
+    const burnText = typeof targetCharacter.getBurnStatusText === 'function'
+        ? targetCharacter.getBurnStatusText()
+        : '';
+    if (burnText) {
+        debuffs.push(burnText);
+    }
+    const infectionText = typeof targetCharacter.getInfectionStatusText === 'function'
+        ? targetCharacter.getInfectionStatusText()
+        : '';
+    if (infectionText) {
+        debuffs.push(infectionText);
+    }
+    if (debuffs.length === 0) {
+        return 'Aucun malus';
+    }
+    return debuffs.join(' | ');
+}
+
+function showPureteTargetSelection(activeChar) {
+    const centerActions = document.getElementById('combat-modal-center-actions');
+    if (!centerActions) {
+        return;
+    }
+    setCombatCenterActionsLayout(centerActions, 'list');
+    centerActions.innerHTML = '';
+
+    const possibleTargets = characters.filter((character) => character.isAlive());
+    possibleTargets.forEach((targetCharacter) => {
+        const button = document.createElement('button');
+        const debuffSummary = buildPureteDebuffSummary(targetCharacter);
+        button.textContent = `${targetCharacter.name} (${targetCharacter.health}/${targetCharacter.maxHealth}) | ${debuffSummary}`;
+        button.addEventListener('click', () => {
+            const result = activeChar.performAction('Purete', null, targetCharacter);
             logMessage(result);
             finishCharacterAction(activeChar, false);
         });
@@ -4109,11 +4313,13 @@ function handleCombatAction(action) {
     const nonTargetedActions = new Set([
         'Bloquer',
         'Provocation',
+        'Cri de guerre',
         'Invocation de squelette',
         'Invocation de totem',
         'Invocation de totem de mort',
         'Soin de groupe',
         'Protection',
+        'Purete',
         'Garde du fer',
         'Evasion',
         'Dechainement d eclair'
@@ -4570,6 +4776,57 @@ function performSpiderAction(spider, aliveMonsters, aliveChars) {
     }
 
     return false;
+}
+
+function performRatAction(rat, aliveAllies, aliveChars) {
+    if (!rat || typeof rat.isRat !== 'function' || !rat.isRat()) {
+        return false;
+    }
+
+    const livingAllies = Array.isArray(aliveAllies) ? aliveAllies.filter((entity) => entity && entity.isAlive()) : [];
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    if (livingAllies.length === 0 || livingHeroes.length === 0) {
+        return false;
+    }
+
+    const biteTarget = pickMonsterAttackTarget(livingAllies);
+    if (!biteTarget) {
+        return false;
+    }
+
+    const attackValue = typeof rat.getCurrentAttack === 'function' ? rat.getCurrentAttack() : rat.attack;
+    const rawBiteDamage = Math.max(1, attackValue);
+    const damageContext = {
+        damageType: 'physical',
+        attacker: rat,
+        enableRiposte: true
+    };
+    const biteDamage = biteTarget.takeDamage(rawBiteDamage, damageContext);
+    let infectionText = '';
+    const infectionChance = Number.isFinite(rat.infectedBiteChance)
+        ? Math.max(0, Math.min(1, Number(rat.infectedBiteChance)))
+        : 0;
+    const infectionDamage = Math.max(1, Math.floor(rat.infectedBiteDamage || 0));
+    const infectionTurns = Math.max(1, Math.floor(rat.infectedBiteTurns || 0));
+    if (
+        biteDamage > 0
+        && infectionChance > 0
+        && infectionDamage > 0
+        && infectionTurns > 0
+        && typeof biteTarget.applyInfection === 'function'
+        && Math.random() < infectionChance
+    ) {
+        biteTarget.applyInfection(infectionDamage, infectionTurns);
+        const turnLabel = infectionTurns > 1 ? 'tours' : 'tour';
+        infectionText = ` ${biteTarget.name} est infecte (${infectionDamage} degats/tour, ${infectionTurns} ${turnLabel}).`;
+    }
+
+    logMessage(`${rat.name} utilise Morsure infectee sur ${biteTarget.name} et inflige ${biteDamage} degats.${infectionText}`);
+    logRiposteOutcome(damageContext.riposteOutcome);
+    if (!biteTarget.isAlive() && biteTarget.entityType === 'summon') {
+        logMessage(`${biteTarget.name} est detruit.`);
+    }
+    return true;
 }
 
 function performCultistAction(cultist, aliveMonsters, aliveAllies, aliveChars) {
@@ -6046,6 +6303,9 @@ document.getElementById('rest').addEventListener('click', () => {
             char.protectionShieldValue = 0;
             char.protectionShieldTurns = 0;
             char.protectionShieldAppliedThisTurn = false;
+        }
+        if (typeof char.clearWarCryBuff === 'function') {
+            char.clearWarCryBuff();
         }
     });
     updateCharacterUI();

@@ -193,8 +193,9 @@ const CLASS_SKILL_TREE = {
         { id: 'warrior_coup_epee', action: 'Coup d epee', unlockLevel: 1, maxRank: 4, powerPerRank: 0.1 },
         { id: 'warrior_bloquer', action: 'Bloquer', unlockLevel: 1, maxRank: 1 },
         { id: 'warrior_assomer', action: 'Assomer', unlockLevel: 1, maxRank: 4, powerPerRank: 0.05, rankDescription: '+3% chance de reussite/rang' },
+        { id: 'warrior_cri_guerre', action: 'Cri de guerre', unlockLevel: 1, maxRank: 4, powerPerRank: 0.08, rankDescription: 'Augmente la defense et l initiative du groupe pendant 2 tours' },
         { id: 'warrior_coup_mort', action: 'Provocation', unlockLevel: 3, maxRank: 1, rankDescription: 'Force tous les monstres a cibler le guerrier pendant 1 tour' },
-        { id: 'warrior_frappe_heroique', action: 'Frappe heroique', unlockLevel: 5, maxRank: 4, powerPerRank: 0.12 },
+        { id: 'warrior_frappe_heroique', action: 'Frappe hemorragique', unlockLevel: 5, maxRank: 4, powerPerRank: 0.12, rankDescription: 'Applique un saignement cumulatif permanent sur la cible' },
         { id: 'warrior_garde_fer', action: 'Garde du fer', unlockLevel: 7, maxRank: 4, powerPerRank: 0.1 },
         { id: 'warrior_coup_devastateur', action: 'Coup devastateur', unlockLevel: 9, maxRank: 4, powerPerRank: 0.15 }
     ],
@@ -234,7 +235,8 @@ const CLASS_SKILL_TREE = {
         { id: 'druid_totem', action: 'Invocation de totem', unlockLevel: 1, maxRank: 4, powerPerRank: 0.08 },
         { id: 'druid_soin_groupe', action: 'Soin de groupe', unlockLevel: 1, maxRank: 4, powerPerRank: 0.1 },
         { id: 'druid_totem_mort', action: 'Invocation de totem de mort', unlockLevel: 3, maxRank: 4, powerPerRank: 0.1 },
-        { id: 'druid_renouveau', action: 'Dechainement d eclair', unlockLevel: 5, maxRank: 4, powerPerRank: 0.12 }
+        { id: 'druid_renouveau', action: 'Dechainement d eclair', unlockLevel: 5, maxRank: 4, powerPerRank: 0.12 },
+        { id: 'druid_purete', action: 'Purete', unlockLevel: 5, maxRank: 4, powerPerRank: 0.08, rankDescription: 'Retire tous les malus et soigne legerement la cible' }
     ]
 };
 const CLASS_PASSIVE_TREE = {
@@ -948,10 +950,18 @@ class Character {
         this.webbedTurns = 0;
         this.assomerCooldownTurns = 0;
         this.usedAssomerThisTurn = false;
+        this.criDeGuerreCooldownTurns = 0;
+        this.usedCriDeGuerreThisTurn = false;
+        this.frappeHemorragiqueCooldownTurns = 0;
+        this.usedFrappeHemorragiqueThisTurn = false;
         this.coupDeMortCooldownTurns = 0;
         this.usedCoupDeMortThisTurn = false;
         this.provocationTurns = 0;
         this.provocationAppliedThisTurn = false;
+        this.warCryDefenseBonus = 0;
+        this.warCryInitiativeBonus = 0;
+        this.warCryTurns = 0;
+        this.warCryAppliedThisTurn = false;
         this.pendingCoupDeMortFollowUp = false;
         this.pendingAssassinationFollowUp = false;
         this.backstabCooldownTurns = 0;
@@ -1123,6 +1133,44 @@ class Character {
         return `Infection: ${this.infectionDamage} degats/tour (${this.infectionTurns} ${turnLabel})`;
     }
 
+    clearNegativeStatusEffects() {
+        let removedCount = 0;
+
+        if (this.hasAttackWeakness()) {
+            this.attackWeakenAmount = 0;
+            this.attackWeakenTurns = 0;
+            removedCount += 1;
+        }
+
+        if (this.isWebbed()) {
+            this.webbedTurns = 0;
+            removedCount += 1;
+        }
+
+        if (this.isColdNumb()) {
+            this.coldNumbTurns = 0;
+            this.coldNumbDamageMultiplier = 1;
+            this.coldNumbAppliedThisTurn = false;
+            removedCount += 1;
+        }
+
+        if (this.isBurning()) {
+            this.burnDamage = 0;
+            this.burnTurns = 0;
+            this.burnAppliedThisTurn = false;
+            removedCount += 1;
+        }
+
+        if (this.isInfected()) {
+            this.infectionDamage = 0;
+            this.infectionTurns = 0;
+            this.infectionAppliedThisTurn = false;
+            removedCount += 1;
+        }
+
+        return removedCount;
+    }
+
     applyProtectionShield(amount = 20, turns = 3, skipFirstTurnTick = false) {
         const shieldAmount = Math.max(1, Math.floor(amount || 0));
         const shieldTurns = Math.max(1, Math.floor(turns || 0));
@@ -1142,6 +1190,63 @@ class Character {
         }
         const turnLabel = this.protectionShieldTurns > 1 ? 'tours' : 'tour';
         return `Protection: ${this.protectionShieldValue} PV (${this.protectionShieldTurns} ${turnLabel})`;
+    }
+
+    applyWarCryBuff(defenseBonus = 0, initiativeBonus = 0, turns = 2, skipFirstTurnTick = false) {
+        const normalizedDefenseBonus = Math.max(1, Math.floor(defenseBonus || 0));
+        const normalizedInitiativeBonus = Math.max(1, Math.floor(initiativeBonus || 0));
+        const duration = Math.max(1, Math.floor(turns || 0));
+
+        const nextDefenseBonus = Math.max(this.warCryDefenseBonus, normalizedDefenseBonus);
+        const nextInitiativeBonus = Math.max(this.warCryInitiativeBonus, normalizedInitiativeBonus);
+        const nextTurns = Math.max(this.warCryTurns, duration);
+
+        this.clearWarCryBuff();
+
+        this.warCryDefenseBonus = nextDefenseBonus;
+        this.warCryInitiativeBonus = nextInitiativeBonus;
+        this.warCryTurns = nextTurns;
+        this.warCryAppliedThisTurn = Boolean(skipFirstTurnTick);
+        this.defense = Math.max(0, this.defense + this.warCryDefenseBonus);
+        if (typeof this.combatInitiative === 'number') {
+            this.combatInitiative += this.warCryInitiativeBonus;
+        }
+
+        return {
+            defenseBonus: this.warCryDefenseBonus,
+            initiativeBonus: this.warCryInitiativeBonus,
+            turns: this.warCryTurns
+        };
+    }
+
+    hasWarCryBuff() {
+        return this.warCryTurns > 0 && (this.warCryDefenseBonus > 0 || this.warCryInitiativeBonus > 0);
+    }
+
+    clearWarCryBuff() {
+        if (!this.hasWarCryBuff()) {
+            this.warCryDefenseBonus = 0;
+            this.warCryInitiativeBonus = 0;
+            this.warCryTurns = 0;
+            this.warCryAppliedThisTurn = false;
+            return;
+        }
+        this.defense = Math.max(0, this.defense - this.warCryDefenseBonus);
+        if (typeof this.combatInitiative === 'number') {
+            this.combatInitiative -= this.warCryInitiativeBonus;
+        }
+        this.warCryDefenseBonus = 0;
+        this.warCryInitiativeBonus = 0;
+        this.warCryTurns = 0;
+        this.warCryAppliedThisTurn = false;
+    }
+
+    getWarCryStatusText() {
+        if (!this.hasWarCryBuff()) {
+            return '';
+        }
+        const turnLabel = this.warCryTurns > 1 ? 'tours' : 'tour';
+        return `Cri de guerre: +${this.warCryDefenseBonus} def, +${this.warCryInitiativeBonus} init (${this.warCryTurns} ${turnLabel})`;
     }
 
     hasProvocationActive() {
@@ -1179,6 +1284,22 @@ class Character {
                 this.usedAssomerThisTurn = false;
             } else {
                 this.assomerCooldownTurns -= 1;
+            }
+        }
+
+        if (this.criDeGuerreCooldownTurns > 0) {
+            if (this.usedCriDeGuerreThisTurn) {
+                this.usedCriDeGuerreThisTurn = false;
+            } else {
+                this.criDeGuerreCooldownTurns -= 1;
+            }
+        }
+
+        if (this.frappeHemorragiqueCooldownTurns > 0) {
+            if (this.usedFrappeHemorragiqueThisTurn) {
+                this.usedFrappeHemorragiqueThisTurn = false;
+            } else {
+                this.frappeHemorragiqueCooldownTurns -= 1;
             }
         }
 
@@ -1227,6 +1348,21 @@ class Character {
                 this.provocationAppliedThisTurn = false;
             } else {
                 this.provocationTurns -= 1;
+            }
+        }
+
+        if (this.hasWarCryBuff()) {
+            if (this.warCryAppliedThisTurn) {
+                this.warCryAppliedThisTurn = false;
+            } else {
+                this.warCryTurns = Math.max(0, this.warCryTurns - 1);
+                if (this.warCryTurns <= 0) {
+                    this.clearWarCryBuff();
+                    if (typeof window !== 'undefined' && typeof window.resortCombatTurnOrderAfterInitiativeShift === 'function') {
+                        window.resortCombatTurnOrderAfterInitiativeShift(this);
+                    }
+                    logs.push(`${this.name} n'est plus galvanise par le Cri de guerre.`);
+                }
             }
         }
 
@@ -1348,6 +1484,24 @@ class Character {
     setAssomerCooldown(turns) {
         this.assomerCooldownTurns = Math.max(0, Math.floor(turns || 0));
         this.usedAssomerThisTurn = this.assomerCooldownTurns > 0;
+    }
+
+    canUseCriDeGuerre() {
+        return this.classType === 'Warrior' && this.criDeGuerreCooldownTurns <= 0;
+    }
+
+    setCriDeGuerreCooldown(turns) {
+        this.criDeGuerreCooldownTurns = Math.max(0, Math.floor(turns || 0));
+        this.usedCriDeGuerreThisTurn = this.criDeGuerreCooldownTurns > 0;
+    }
+
+    canUseFrappeHemorragique() {
+        return this.classType === 'Warrior' && this.frappeHemorragiqueCooldownTurns <= 0;
+    }
+
+    setFrappeHemorragiqueCooldown(turns) {
+        this.frappeHemorragiqueCooldownTurns = Math.max(0, Math.floor(turns || 0));
+        this.usedFrappeHemorragiqueThisTurn = this.frappeHemorragiqueCooldownTurns > 0;
     }
 
     canUseProvocation() {
@@ -1482,8 +1636,13 @@ class Character {
     }
 
     resetSkillCooldownsAfterCombat() {
+        this.clearWarCryBuff();
         this.assomerCooldownTurns = 0;
         this.usedAssomerThisTurn = false;
+        this.criDeGuerreCooldownTurns = 0;
+        this.usedCriDeGuerreThisTurn = false;
+        this.frappeHemorragiqueCooldownTurns = 0;
+        this.usedFrappeHemorragiqueThisTurn = false;
         this.coupDeMortCooldownTurns = 0;
         this.usedCoupDeMortThisTurn = false;
         this.backstabCooldownTurns = 0;
@@ -1715,7 +1874,7 @@ class Character {
         }
         return action === 'Attaquer'
             || action === 'Coup d epee'
-            || action === 'Frappe heroique'
+            || action === 'Frappe hemorragique'
             || action === 'Coup devastateur'
             || action === 'Attaque au baton'
             || action === 'Coup de baton'
@@ -2200,7 +2359,7 @@ class Character {
                 || action === 'Coup de baton'
                 || action === 'Drain de vie'
                 || action === 'Affaiblissement'
-                || action === 'Frappe heroique'
+                || action === 'Frappe hemorragique'
                 || action === 'Coup devastateur'
                 || action === 'Frappe de l ombre'
                 || action === 'Pluie de lames'
@@ -2262,16 +2421,54 @@ class Character {
             return `${this.name} tente Assomer sur ${monster.name}, mais echoue (${percent}% de chance).`;
         }
 
-        if (action === 'Frappe heroique') {
+        if (action === 'Cri de guerre') {
+            if (!this.canUseCriDeGuerre()) {
+                return `${this.name} ne peut pas encore utiliser Cri de guerre (${this.criDeGuerreCooldownTurns} tours restants).`;
+            }
+            const aliveAllies = characters.filter((character) => character && character.isAlive());
+            if (aliveAllies.length === 0) {
+                return `${this.name} ne peut galvaniser personne.`;
+            }
+
+            this.setCriDeGuerreCooldown(3);
+            const buffTurns = 2;
+            const defenseBonus = Math.max(2, Math.round(4 * this.getSkillPowerMultiplier(action)));
+            const initiativeBonus = Math.max(1, Math.round(3 * this.getSkillPowerMultiplier(action)));
+            aliveAllies.forEach((ally) => {
+                if (ally && typeof ally.applyWarCryBuff === 'function') {
+                    ally.applyWarCryBuff(defenseBonus, initiativeBonus, buffTurns, true);
+                }
+            });
+            if (typeof window !== 'undefined' && typeof window.resortCombatTurnOrderAfterInitiativeShift === 'function') {
+                window.resortCombatTurnOrderAfterInitiativeShift(this);
+            }
+            playSpellCastSound(0.8);
+            return `${this.name} lance un Cri de guerre: +${defenseBonus} defense et +${initiativeBonus} initiative pour ${buffTurns} tours.`;
+        }
+
+        if (action === 'Frappe hemorragique') {
+            if (!this.canUseFrappeHemorragique()) {
+                return `${this.name} ne peut pas encore utiliser Frappe hemorragique (${this.frappeHemorragiqueCooldownTurns} tours restants).`;
+            }
+            this.setFrappeHemorragiqueCooldown(2);
             const rawDamage = this.rollPhysicalWeaponDamage(action, 8);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });
             const criticalText = this.getCriticalHitText(criticalOutcome.isCritical ? 1 : 0);
             markAssassinationOnCriticalKill(monster, criticalOutcome.isCritical ? 1 : 0);
+            let bleedText = '';
+            if (monster && typeof monster.applyBleed === 'function' && typeof monster.isAlive === 'function' && monster.isAlive()) {
+                const bleedDamage = this.scalePhysicalDamage(3, action);
+                const appliedBleed = monster.applyBleed(bleedDamage);
+                const totalBleedDamage = Math.max(1, Math.floor(Number(appliedBleed && appliedBleed.damage) || bleedDamage));
+                const bleedStacks = Math.max(1, Math.floor(Number(appliedBleed && appliedBleed.stacks) || 1));
+                const stackLabel = bleedStacks > 1 ? 'cumuls' : 'cumul';
+                bleedText = ` Saignement: ${totalBleedDamage} degats/tour (${bleedStacks} ${stackLabel}).`;
+            }
             const elementalText = applyWeaponElementalBonusDamage(action, monster);
             const contactEffectText = applyWeaponContactEffects();
             playMeleeHitSound(0.94);
-            return `${this.name} declenche Frappe heroique et inflige ${damage} degats.${criticalText}${elementalText}${contactEffectText}`;
+            return `${this.name} declenche Frappe hemorragique et inflige ${damage} degats.${criticalText}${bleedText}${elementalText}${contactEffectText}`;
         }
 
         if (action === 'Garde du fer') {
@@ -2483,6 +2680,30 @@ class Character {
             const appliedValue = target.applyProtectionShield(shieldAmount, shieldTurns, target === this);
             playSpellCastSound(0.73);
             return `${this.name} protege ${target.name} (${appliedValue} PV, ${shieldTurns} tours).`;
+        }
+
+        if (action === 'Purete') {
+            const manaCost = 18;
+            if (this.mana < manaCost) {
+                return `${this.name} n'a pas assez de mana pour Purete.`;
+            }
+            if (!target || typeof target.isAlive !== 'function' || !target.isAlive()) {
+                return `${this.name} n'a pas de cible valide pour Purete.`;
+            }
+
+            this.mana -= manaCost;
+            const removedDebuffs = typeof target.clearNegativeStatusEffects === 'function'
+                ? target.clearNegativeStatusEffects()
+                : 0;
+            const healAmount = this.scaleMagicSpellPower(8, 4, action);
+            const beforeHealth = target.health;
+            target.health = Math.min(target.maxHealth, target.health + healAmount);
+            const restored = Math.max(0, target.health - beforeHealth);
+            const dispelText = removedDebuffs > 0
+                ? `${removedDebuffs} malus retire${removedDebuffs > 1 ? 's' : ''}`
+                : 'aucun malus a retirer';
+            playSpellCastSound(0.74);
+            return `${this.name} purifie ${target.name}: ${dispelText} et ${restored} PV soignes.`;
         }
 
         if (action === 'Soin de groupe') {
@@ -3511,10 +3732,18 @@ function updateCharacterUI() {
         const infectionLine = infectionText ? `<br><span class="debuff-status">${infectionText}</span>` : '';
         const protectionText = typeof char.getProtectionStatusText === 'function' ? char.getProtectionStatusText() : '';
         const protectionLine = protectionText ? `<br><span class="debuff-status">${protectionText}</span>` : '';
+        const warCryText = typeof char.getWarCryStatusText === 'function' ? char.getWarCryStatusText() : '';
+        const warCryLine = warCryText ? `<br><span class="debuff-status">${warCryText}</span>` : '';
         const provocationText = typeof char.getProvocationStatusText === 'function' ? char.getProvocationStatusText() : '';
         const provocationLine = provocationText ? `<br><span class="debuff-status">${provocationText}</span>` : '';
         const assomerLine = (char.classType === 'Warrior' && char.assomerCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Assomer recharge: ${char.assomerCooldownTurns} tours</span>`
+            : '';
+        const criDeGuerreLine = (char.classType === 'Warrior' && char.criDeGuerreCooldownTurns > 0)
+            ? `<br><span class="skill-cooldown">Cri de guerre recharge: ${char.criDeGuerreCooldownTurns} tours</span>`
+            : '';
+        const hemorragiqueLine = (char.classType === 'Warrior' && char.frappeHemorragiqueCooldownTurns > 0)
+            ? `<br><span class="skill-cooldown">Frappe hemorragique recharge: ${char.frappeHemorragiqueCooldownTurns} tours</span>`
             : '';
         const backstabLine = (char.classType === 'Rogue' && char.backstabCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Backstab recharge: ${char.backstabCooldownTurns} tours</span>`
@@ -3552,8 +3781,11 @@ function updateCharacterUI() {
             ${burnLine}
             ${infectionLine}
             ${protectionLine}
+            ${warCryLine}
             ${provocationLine}
             ${assomerLine}
+            ${criDeGuerreLine}
+            ${hemorragiqueLine}
             ${provocationCooldownLine}
             ${backstabLine}
             ${targetedShotLine}
@@ -3726,12 +3958,13 @@ function renderInventoryCharacterHeader(char, characterIndex) {
     const burnText = typeof char.getBurnStatusText === 'function' ? char.getBurnStatusText() : '';
     const infectionText = typeof char.getInfectionStatusText === 'function' ? char.getInfectionStatusText() : '';
     const protectionText = typeof char.getProtectionStatusText === 'function' ? char.getProtectionStatusText() : '';
+    const warCryText = typeof char.getWarCryStatusText === 'function' ? char.getWarCryStatusText() : '';
     const provocationText = typeof char.getProvocationStatusText === 'function' ? char.getProvocationStatusText() : '';
     const resistanceSummary = typeof char.getDamageResistanceSummaryText === 'function'
         ? char.getDamageResistanceSummaryText()
         : '';
     const inventoryPortraitClass = `inventory-character-portrait${typeof char.isInfected === 'function' && char.isInfected() ? ' status-infected' : ''}`;
-    const statusLines = [weaknessText, webText, coldNumbText, burnText, infectionText, protectionText, provocationText].filter(Boolean)
+    const statusLines = [weaknessText, webText, coldNumbText, burnText, infectionText, protectionText, warCryText, provocationText].filter(Boolean)
         .map((status) => `<div class="inventory-status">${status}</div>`)
         .join('');
 
