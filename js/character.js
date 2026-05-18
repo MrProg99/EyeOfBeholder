@@ -151,7 +151,7 @@ const COLD_NUMB_DAMAGE_MULTIPLIER = 0.75;
 const COLD_NUMB_DEFAULT_TURNS = 2;
 const BURN_DEFAULT_TURNS = 2;
 const SKILL_RANK_POWER_BONUS = 0.12;
-const ARCHER_BOSS_MONSTER_TYPES = new Set(['green_slime', 'ice_golem', 'fire_golem', 'spectral_knight', 'spider_queen']);
+const ARCHER_BOSS_MONSTER_TYPES = new Set(['green_slime', 'ice_golem', 'fire_golem', 'spectral_knight', 'spider_queen', 'archimage']);
 const DEFAULT_WEAPON_DAMAGE_RANGE_BY_FAMILY = {
     sword: { minDamage: 7, maxDamage: 11 },
     short_sword: { minDamage: 6, maxDamage: 9 },

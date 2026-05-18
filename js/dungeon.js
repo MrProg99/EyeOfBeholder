@@ -20,7 +20,7 @@ const ASCENT_NODE_TYPES = Object.freeze({
     REST: 'rest',
     BOSS: 'boss'
 });
-const ASCENT_BOSS_ROTATION = ['green_slime', 'ice_golem', 'fire_golem', 'spectral_knight', 'spider_queen'];
+const ASCENT_BOSS_ROTATION = ['green_slime', 'ice_golem', 'fire_golem', 'spectral_knight', 'spider_queen', 'archimage'];
 
 class Dungeon {
     constructor() {

@@ -242,6 +242,35 @@ const MONSTER_DATA = {
         image: 'Images/ReineAraignee.png',
         abilities: ['Nuage de poison (AOE + chance d infection)', 'Morsure venimeuse', 'Invocation de bebe araignee', 'Drain de vie']
     },
+    archimage: {
+        id: 'archimage',
+        name: 'Archimage',
+        monsterLevel: 10,
+        isBoss: true,
+        health: 330,
+        attack: 14,
+        defense: 11,
+        role: 'archmage',
+        mana: 240,
+        manaRegenPerTurn: 12,
+        protectionShieldValue: 140,
+        magicMissileDamage: 16,
+        magicMissileManaCost: 10,
+        chainLightningDamage: 13,
+        chainLightningBolts: 3,
+        chainLightningManaCost: 24,
+        summonType: 'minor_specter',
+        summonCount: 1,
+        summonManaCost: 18,
+        damageResistances: { magic: 35, fire: 12, ice: 12, poison: 18, bleed: 24, physical: 10 },
+        image: 'Images/Archimage.png',
+        abilities: [
+            'Bouclier arcanique initial eleve',
+            'Magic Missile',
+            'Dechainement d eclair',
+            'Invocation de spectre'
+        ]
+    },
     spider: {
         id: 'spider',
         name: 'Araignee',
@@ -318,6 +347,7 @@ const MONSTER_FORCE_KEY_BY_TYPE = {
     fire_golem: 'fire_golem',
     spectral_knight: 'spectral_knight',
     spider_queen: 'spider_queen',
+    archimage: 'archimage',
     spider: 'spider',
     spiderling: 'spiderling',
     rat: 'rat',
@@ -522,6 +552,8 @@ class Monster {
         this.hasProcessedDeathSplit = false;
         this.maxMana = Math.max(0, Math.floor(options.maxMana || options.mana || 0));
         this.mana = this.maxMana;
+        this.manaRegenPerTurn = Math.max(0, Math.floor(options.manaRegenPerTurn || 0));
+        this.protectionShieldValue = Math.max(0, Math.floor(options.protectionShieldValue || 0));
         this.healPower = options.healPower || 0;
         this.healManaCost = Math.max(0, Math.floor(options.healManaCost || 0));
         this.weakenPower = options.weakenPower || 0;
@@ -567,6 +599,12 @@ class Monster {
         this.lifeDrainChance = Number.isFinite(options.lifeDrainChance)
             ? Math.max(0, Math.min(1, Number(options.lifeDrainChance)))
             : 0;
+        this.magicMissileDamage = Math.max(0, Math.floor(options.magicMissileDamage || 0));
+        this.magicMissileManaCost = Math.max(0, Math.floor(options.magicMissileManaCost || 0));
+        this.chainLightningDamage = Math.max(0, Math.floor(options.chainLightningDamage || 0));
+        this.chainLightningBolts = Math.max(0, Math.floor(options.chainLightningBolts || 0));
+        this.chainLightningManaCost = Math.max(0, Math.floor(options.chainLightningManaCost || 0));
+        this.summonManaCost = Math.max(0, Math.floor(options.summonManaCost || 0));
         this.summonChance = Number.isFinite(options.summonChance)
             ? Math.max(0, Math.min(1, Number(options.summonChance)))
             : 0;
@@ -691,9 +729,20 @@ class Monster {
             ignoreArmor: Boolean(normalizedOptions.ignoreArmor),
             armorPenetrationPercent: normalizedOptions.armorPenetrationPercent || 0
         });
-        const finalDamage = this.isMarked()
+        const damageBeforeShield = this.isMarked()
             ? Math.max(1, Math.round(baseDamage * (1 + this.damageTakenVulnerabilityPercent)))
             : baseDamage;
+        const shieldValueBeforeHit = this.protectionShieldValue;
+        const absorbedByShield = this.absorbProtectionDamage(damageBeforeShield);
+        if (
+            absorbedByShield > 0
+            && shieldValueBeforeHit > 0
+            && this.protectionShieldValue <= 0
+            && typeof logMessage === 'function'
+        ) {
+            logMessage(`Le bouclier de ${this.name} se brise.`);
+        }
+        const finalDamage = Math.max(0, damageBeforeShield - absorbedByShield);
         this.health -= finalDamage;
         if (finalDamage > 0 && typeof window.queueDamageFlash === 'function') {
             window.queueDamageFlash(this, finalDamage);
@@ -778,12 +827,30 @@ class Monster {
         return this.role === 'minor_specter';
     }
 
+    isArchmage() {
+        return this.role === 'archmage';
+    }
+
     isRat() {
         return this.role === 'rat';
     }
 
     isBoss() {
         return this.isBossMonster;
+    }
+
+    hasProtectionShield() {
+        return this.protectionShieldValue > 0;
+    }
+
+    absorbProtectionDamage(incomingDamage) {
+        const normalizedIncomingDamage = Math.max(0, Math.floor(incomingDamage || 0));
+        if (normalizedIncomingDamage <= 0 || !this.hasProtectionShield()) {
+            return 0;
+        }
+        const absorbedDamage = Math.min(normalizedIncomingDamage, this.protectionShieldValue);
+        this.protectionShieldValue = Math.max(0, this.protectionShieldValue - absorbedDamage);
+        return absorbedDamage;
     }
 
     getMonsterLevel() {
@@ -971,6 +1038,10 @@ class Monster {
                 this.damageTakenVulnerabilityPercent = 0;
                 logs.push(`${this.name} n'est plus marque.`);
             }
+        }
+        if (this.maxMana > 0 && this.manaRegenPerTurn > 0 && this.isAlive()) {
+            const beforeMana = Math.max(0, Math.floor(this.mana || 0));
+            this.mana = Math.min(this.maxMana, beforeMana + this.manaRegenPerTurn);
         }
         return logs;
     }

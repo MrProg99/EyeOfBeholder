@@ -85,6 +85,8 @@ const RED_ROOM_EXTRA_DAMAGE_FIELDS = [
     'poisonCloudInfectionDamage',
     'infectedBiteDamage',
     'deathPoisonOnKillerDamage',
+    'magicMissileDamage',
+    'chainLightningDamage',
     'lifeDrainDamage',
     'weaponContactFireDamage',
     'weaponContactBurnDamage'
@@ -126,6 +128,7 @@ const MONSTER_PORTRAITS = {
     'Golem de feu': 'Images/GolemFeu.png',
     'Chevalier spectrale': 'Images/ChevalierSpectrale.png',
     'Reine araignee': 'Images/ReineAraignee.png',
+    Archimage: 'Images/Archimage.png',
     Rat: 'Images/Rat.png',
     Araignee: 'Images/Spider.png',
     'Bebe araignee': 'Images/Spider.png',
@@ -176,6 +179,7 @@ const INITIATIVE_BASE = {
         'Golem de feu': 8,
         'Chevalier spectrale': 10,
         'Reine araignee': 12,
+        Archimage: 13,
         Rat: 16,
         'Squelette invoque': 9
     }
@@ -301,6 +305,27 @@ const BOSS_RELIC_DEFINITIONS = {
             { stat: 'strength', min: 1, max: 3 },
             { stat: 'magicResistance', min: 8, max: 14 },
             { stat: 'manaRegenBonus', min: 2, max: 4 }
+        ]
+    },
+    archimage: {
+        tier: 6,
+        type: 'ring',
+        rarity: 'epic',
+        names: ['Anneau du savoir infini', 'Sceau de l Archimage', 'Cercle des eclairs anciens'],
+        guaranteed: {
+            intelligence: 5,
+            magic: 5,
+            manaRegenBonus: 4,
+            magicResistance: 18
+        },
+        randomRanges: [
+            { stat: 'intelligence', min: 2, max: 5 },
+            { stat: 'magic', min: 2, max: 5 },
+            { stat: 'vitality', min: 1, max: 4 },
+            { stat: 'perception', min: 1, max: 3 },
+            { stat: 'fireResistance', min: 6, max: 12 },
+            { stat: 'iceResistance', min: 6, max: 12 },
+            { stat: 'manaRegenBonus', min: 2, max: 5 }
         ]
     }
 };
@@ -1563,6 +1588,23 @@ function loadSavedGameProgress() {
     }
 
     dungeon.floors = savedFloors;
+    if (typeof dungeon.chooseBossTypeForFloor === 'function') {
+        dungeon.floors.forEach((floorData, floorIndex) => {
+            if (!floorData || !Array.isArray(floorData.nodes)) {
+                return;
+            }
+            const expectedBossType = dungeon.chooseBossTypeForFloor(floorIndex);
+            floorData.nodes.forEach((node) => {
+                if (!node || node.nodeType !== 'boss') {
+                    return;
+                }
+                node.forcedMonsterType = expectedBossType;
+            });
+            if (Object.prototype.hasOwnProperty.call(floorData, 'bossType')) {
+                floorData.bossType = expectedBossType;
+            }
+        });
+    }
     const maxFloorIndex = Math.max(0, dungeon.floors.length - 1);
     dungeon.currentFloor = Math.max(0, Math.min(maxFloorIndex, Math.floor(Number(savedDungeon.currentFloor) || 0)));
 
@@ -2813,6 +2855,15 @@ function startCombat() {
         .map((entity) => `${entity.name}(${entity.combatInitiative})`)
         .join(' > ');
     logMessage(`Ordre d initiative: ${initiativeSummary}`);
+    currentMonsters.forEach((monster) => {
+        if (
+            monster
+            && typeof monster.hasProtectionShield === 'function'
+            && monster.hasProtectionShield()
+        ) {
+            logMessage(`${monster.name} debute le combat avec un bouclier arcanique (${monster.protectionShieldValue} PV).`);
+        }
+    });
     
     // Call immediately
     advanceCombatFlow();
@@ -3204,9 +3255,6 @@ function updateCombatUI() {
         if (typeof m.isSpiderling === 'function' && m.isSpiderling()) {
             roleTags.push('Bebe');
         }
-        if (typeof m.isSpiderQueen === 'function' && m.isSpiderQueen()) {
-            roleTags.push('Boss');
-        }
         if (typeof m.isDarkImp === 'function' && m.isDarkImp()) {
             roleTags.push('Imp');
         }
@@ -3219,6 +3267,12 @@ function updateCombatUI() {
         if (typeof m.isMinorSpecter === 'function' && m.isMinorSpecter()) {
             roleTags.push('Spectre');
         }
+        if (typeof m.isArchmage === 'function' && m.isArchmage()) {
+            roleTags.push('Archimage');
+        }
+        if (typeof m.isBoss === 'function' && m.isBoss()) {
+            roleTags.push('Boss');
+        }
         const roleText = roleTags.length > 0 ? ` | ${roleTags.join(', ')}` : '';
         const stunText = (typeof m.isStunned === 'function' && m.isStunned()) ? ` | Etourdi: ${m.stunnedTurns} tours` : '';
         const bleedText = (typeof m.isBleeding === 'function' && m.isBleeding())
@@ -3226,6 +3280,9 @@ function updateCombatUI() {
             : '';
         const burnText = (typeof m.isBurning === 'function' && m.isBurning()) ? ` | Brulure: ${m.burnTurns} tours` : '';
         const poisonText = (typeof m.isPoisoned === 'function' && m.isPoisoned()) ? ` | Poison: ${m.poisonTurns} tours` : '';
+        const shieldText = (typeof m.hasProtectionShield === 'function' && m.hasProtectionShield())
+            ? ` | Bouclier: ${Math.max(0, Math.floor(m.protectionShieldValue || 0))}`
+            : '';
         const markedText = (typeof m.isMarked === 'function' && m.isMarked())
             ? ` | ${typeof m.getMarkedStatusText === 'function' ? m.getMarkedStatusText() : 'Marque'}`
             : '';
@@ -3233,11 +3290,11 @@ function updateCombatUI() {
             ? ` | ${m.getAttackWeaknessText()}`
             : '';
         const displayedMonsterAttack = typeof m.getCurrentAttack === 'function' ? m.getCurrentAttack() : m.attack;
-        const manaText = (typeof m.isShaman === 'function' && m.isShaman() && (m.maxMana || 0) > 0)
+        const manaText = ((m.maxMana || 0) > 0)
             ? ` | Mana: ${m.mana}/${m.maxMana}`
             : '';
         const portraitPath = getMonsterPortraitPath(m);
-        const effectTextFallback = portraitPath ? '' : `${stunText}${bleedText}${burnText}${poisonText}${markedText}${weakenText}`;
+        const effectTextFallback = portraitPath ? '' : `${stunText}${bleedText}${burnText}${poisonText}${shieldText}${markedText}${weakenText}`;
         const damageEvent = consumeDamageEvent(m);
         const portraitClass = `combat-monster-portrait${damageEvent.shouldAnimate ? ' damage-hit' : ''}`;
         const damageNumberHtml = damageEvent.damageAmount > 0
@@ -3257,7 +3314,7 @@ function updateCombatUI() {
             ` : ''}
             <div class="combat-monster-details">
                 <strong>[${idx + 1}] ${m.name}</strong>${roleText}${effectTextFallback}<br>
-                PV: ${m.health}/${m.maxHealth}${manaText} - Att: ${displayedMonsterAttack} Def: ${m.defense}
+                PV: ${m.health}/${m.maxHealth}${shieldText}${manaText} - Att: ${displayedMonsterAttack} Def: ${m.defense}
                 <div class="resource-bars compact">
                     <div class="resource-block">
                         <div class="resource-bar"><div class="resource-fill resource-fill-health" style="width: ${monsterHealthPercent}%;"></div></div>
@@ -3749,6 +3806,9 @@ function performMonsterTurnEntity(monster) {
     const usedDarkImpAction = (typeof monster.isDarkImp === 'function' && monster.isDarkImp())
         ? performDarkImpAction(monster, alliedTargets, aliveChars)
         : false;
+    const usedArchmageAction = (typeof monster.isArchmage === 'function' && monster.isArchmage())
+        ? performArchmageAction(monster, aliveMonsters, alliedTargets, aliveChars)
+        : false;
     const usedRatAction = (typeof monster.isRat === 'function' && monster.isRat())
         ? performRatAction(monster, alliedTargets, aliveChars)
         : false;
@@ -3764,6 +3824,7 @@ function performMonsterTurnEntity(monster) {
         && !usedCultistAction
         && !usedMinorSpecterAction
         && !usedDarkImpAction
+        && !usedArchmageAction
         && !usedRatAction
     ) {
         performMonsterBasicAttack(monster, alliedTargets);
@@ -4773,6 +4834,145 @@ function performSpiderAction(spider, aliveMonsters, aliveChars) {
             logMessage(`${spider.name} lance une toile sur ${target.name} et l'immobilise pour ${spider.webTurns} tours.`);
             return true;
         }
+    }
+
+    return false;
+}
+
+function performArchmageAction(archmage, aliveMonsters, aliveAllies, aliveChars) {
+    if (!archmage || typeof archmage.isArchmage !== 'function' || !archmage.isArchmage()) {
+        return false;
+    }
+
+    const livingMonsters = Array.isArray(aliveMonsters) ? aliveMonsters.filter((entity) => entity && entity.isAlive()) : [];
+    const livingAllies = Array.isArray(aliveAllies) ? aliveAllies.filter((entity) => entity && entity.isAlive()) : [];
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    if (livingAllies.length === 0 || livingHeroes.length === 0) {
+        return false;
+    }
+
+    const getCurrentMana = () => Math.max(0, Math.floor(archmage.mana || 0));
+    const canSpendMana = (cost) => getCurrentMana() >= Math.max(0, Math.floor(cost || 0));
+    const consumeMana = (cost) => {
+        const normalizedCost = Math.max(0, Math.floor(cost || 0));
+        if (normalizedCost <= 0) {
+            return true;
+        }
+        if (!canSpendMana(normalizedCost)) {
+            return false;
+        }
+        archmage.mana = getCurrentMana() - normalizedCost;
+        return true;
+    };
+    const getManaSuffix = () => ((archmage.maxMana || 0) > 0 ? ` (Mana ${archmage.mana}/${archmage.maxMana})` : '');
+
+    const missileDamage = Math.max(1, Math.floor(archmage.magicMissileDamage || 0));
+    const missileCost = Math.max(0, Math.floor(archmage.magicMissileManaCost || 0));
+    const chainDamage = Math.max(1, Math.floor(archmage.chainLightningDamage || 0));
+    const chainBolts = Math.max(1, Math.floor(archmage.chainLightningBolts || 1));
+    const chainCost = Math.max(0, Math.floor(archmage.chainLightningManaCost || 0));
+    const summonType = typeof archmage.summonType === 'string' && archmage.summonType.length > 0
+        ? archmage.summonType
+        : 'minor_specter';
+    const summonCount = Math.max(1, Math.floor(archmage.summonCount || 1));
+    const summonCost = Math.max(0, Math.floor(archmage.summonManaCost || 0));
+    const availableSlots = Math.max(0, MAX_MONSTERS_IN_COMBAT - livingMonsters.length);
+
+    const canUseMissile = missileDamage > 0 && canSpendMana(missileCost);
+    const canUseChainLightning = chainDamage > 0 && chainBolts > 0 && canSpendMana(chainCost);
+    const canSummonSpecter = Boolean(summonType && summonCount > 0 && availableSlots > 0 && canSpendMana(summonCost));
+
+    const actionCandidates = [];
+    if (canUseChainLightning) {
+        actionCandidates.push({ key: 'chain_lightning', weight: 0.42 });
+    }
+    if (canSummonSpecter) {
+        actionCandidates.push({ key: 'summon_specter', weight: 0.26 });
+    }
+    if (canUseMissile) {
+        actionCandidates.push({ key: 'magic_missile', weight: 0.35 });
+    }
+    if (actionCandidates.length === 0) {
+        return false;
+    }
+
+    let roll = Math.random() * actionCandidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+    let selectedAction = actionCandidates[actionCandidates.length - 1].key;
+    for (let i = 0; i < actionCandidates.length; i += 1) {
+        roll -= actionCandidates[i].weight;
+        if (roll <= 0) {
+            selectedAction = actionCandidates[i].key;
+            break;
+        }
+    }
+
+    if (selectedAction === 'summon_specter' && canSummonSpecter) {
+        const targetSummonCount = Math.min(summonCount, availableSlots);
+        let summonedCount = 0;
+        for (let i = 0; i < targetSummonCount; i += 1) {
+            const summonedSpecter = createMonster(summonType);
+            if (registerSummonedMonster(summonedSpecter)) {
+                summonedCount += 1;
+            }
+        }
+        if (summonedCount > 0) {
+            if (!consumeMana(summonCost)) {
+                return false;
+            }
+            const label = summonedCount > 1 ? 'spectres mineurs' : 'spectre mineur';
+            logMessage(`${archmage.name} invoque ${summonedCount} ${label}.${getManaSuffix()}`);
+            return true;
+        }
+    }
+
+    if (selectedAction === 'chain_lightning' && canUseChainLightning) {
+        if (!consumeMana(chainCost)) {
+            return false;
+        }
+        const boltMessages = [];
+        for (let boltIndex = 0; boltIndex < chainBolts; boltIndex += 1) {
+            const availableTargets = livingAllies.filter((entity) => entity && entity.isAlive());
+            if (availableTargets.length === 0) {
+                break;
+            }
+            const target = pickMonsterAttackTarget(availableTargets);
+            if (!target) {
+                break;
+            }
+            const damage = target.takeDamage(chainDamage, {
+                damageType: 'magic',
+                attacker: archmage,
+                enableRiposte: false
+            });
+            boltMessages.push(`Eclair ${boltIndex + 1}: ${target.name} subit ${damage} degats`);
+            if (!target.isAlive() && target.entityType === 'summon') {
+                boltMessages.push(`${target.name} est detruit`);
+            }
+        }
+        if (boltMessages.length > 0) {
+            logMessage(`${archmage.name} dechaine ses eclairs. ${boltMessages.join(' | ')}.${getManaSuffix()}`);
+            return true;
+        }
+    }
+
+    if (canUseMissile) {
+        const target = pickMonsterAttackTarget(livingAllies);
+        if (!target) {
+            return false;
+        }
+        if (!consumeMana(missileCost)) {
+            return false;
+        }
+        const damage = target.takeDamage(missileDamage, {
+            damageType: 'magic',
+            attacker: archmage,
+            enableRiposte: false
+        });
+        logMessage(`${archmage.name} lance Magic Missile sur ${target.name} et inflige ${damage} degats.${getManaSuffix()}`);
+        if (!target.isAlive() && target.entityType === 'summon') {
+            logMessage(`${target.name} est detruit.`);
+        }
+        return true;
     }
 
     return false;
