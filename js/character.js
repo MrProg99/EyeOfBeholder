@@ -145,6 +145,7 @@ const CLASS_PRIMARY_STATS = {
 };
 const LEVEL_UP_STAT_POINTS = 5;
 const BACKSTAB_STUN_BONUS_CHANCE = 0.2;
+const BACKSTAB_MAX_SUCCESS_CHANCE = 0.75;
 const CRITICAL_STRIKE_BASE_CHANCE = 0.05;
 const CRITICAL_STRIKE_PERCEPTION_BONUS = 0.01;
 const CRITICAL_STRIKE_MAX_CHANCE = 0.5;
@@ -152,6 +153,7 @@ const CRITICAL_STRIKE_DAMAGE_MULTIPLIER = 1.5;
 const COLD_NUMB_DAMAGE_MULTIPLIER = 0.75;
 const COLD_NUMB_DEFAULT_TURNS = 2;
 const BURN_DEFAULT_TURNS = 2;
+const BLEED_DEFAULT_TURNS = 2;
 const SKILL_RANK_POWER_BONUS = 0.12;
 const ARCHER_BOSS_MONSTER_TYPES = new Set(['green_slime', 'ice_golem', 'fire_golem', 'spectral_knight', 'spider_queen', 'archimage']);
 const DEFAULT_WEAPON_DAMAGE_RANGE_BY_FAMILY = {
@@ -616,7 +618,8 @@ function createEmptyCharacterDamageResistanceMap() {
         magic: 0,
         fire: 0,
         ice: 0,
-        poison: 0
+        poison: 0,
+        bleed: 0
     };
 }
 
@@ -993,6 +996,9 @@ class Character {
         this.burnDamage = 0;
         this.burnTurns = 0;
         this.burnAppliedThisTurn = false;
+        this.bleedDamage = 0;
+        this.bleedTurns = 0;
+        this.bleedAppliedThisTurn = false;
         this.infectionDamage = 0;
         this.infectionTurns = 0;
         this.infectionAppliedThisTurn = false;
@@ -1022,6 +1028,8 @@ class Character {
         this.usedTargetedShotThisTurn = false;
         this.perforatingArrowCooldownTurns = 0;
         this.usedPerforatingArrowThisTurn = false;
+        this.poisonArrowCooldownTurns = 0;
+        this.usedPoisonArrowThisTurn = false;
         this.skeletonSummonCooldownTurns = 0;
         this.usedSkeletonSummonThisTurn = false;
     }
@@ -1164,6 +1172,27 @@ class Character {
         return `Brulure: ${this.burnDamage} degats/tour (${this.burnTurns} ${turnLabel})`;
     }
 
+    applyBleed(damage, turns = BLEED_DEFAULT_TURNS) {
+        const bleedDamage = Math.max(1, Math.floor(damage || 0));
+        const bleedTurns = Math.max(1, Math.floor(turns || 0));
+        this.bleedDamage = Math.max(this.bleedDamage, bleedDamage);
+        this.bleedTurns = Math.max(this.bleedTurns, bleedTurns);
+        this.bleedAppliedThisTurn = true;
+        return this.bleedTurns;
+    }
+
+    isBleeding() {
+        return this.bleedDamage > 0 && this.bleedTurns > 0;
+    }
+
+    getBleedStatusText() {
+        if (!this.isBleeding()) {
+            return '';
+        }
+        const turnLabel = this.bleedTurns > 1 ? 'tours' : 'tour';
+        return `Saignement: ${this.bleedDamage} degats/tour (${this.bleedTurns} ${turnLabel})`;
+    }
+
     applyInfection(damage, turns = 3) {
         const infectionDamage = Math.max(1, Math.floor(damage || 0));
         const infectionTurns = Math.max(1, Math.floor(turns || 0));
@@ -1210,6 +1239,13 @@ class Character {
             this.burnDamage = 0;
             this.burnTurns = 0;
             this.burnAppliedThisTurn = false;
+            removedCount += 1;
+        }
+
+        if (this.isBleeding()) {
+            this.bleedDamage = 0;
+            this.bleedTurns = 0;
+            this.bleedAppliedThisTurn = false;
             removedCount += 1;
         }
 
@@ -1387,6 +1423,14 @@ class Character {
             }
         }
 
+        if (this.poisonArrowCooldownTurns > 0) {
+            if (this.usedPoisonArrowThisTurn) {
+                this.usedPoisonArrowThisTurn = false;
+            } else {
+                this.poisonArrowCooldownTurns -= 1;
+            }
+        }
+
         if (this.skeletonSummonCooldownTurns > 0) {
             if (this.usedSkeletonSummonThisTurn) {
                 this.usedSkeletonSummonThisTurn = false;
@@ -1500,6 +1544,38 @@ class Character {
                     logs.push(`${this.name} succombe a la brulure.`);
                 } else if (this.burnTurns === 0) {
                     logs.push(`${this.name} n'est plus en feu.`);
+                }
+            }
+        }
+
+        if (this.isBleeding()) {
+            if (this.bleedAppliedThisTurn) {
+                this.bleedAppliedThisTurn = false;
+            } else {
+                const finalBleedDamage = this.takeDamage(this.bleedDamage, {
+                    damageType: 'bleed',
+                    ignoreBlocking: true
+                });
+
+                this.bleedTurns = Math.max(0, this.bleedTurns - 1);
+                const turnLabel = this.bleedTurns > 1 ? 'tours restants' : 'tour restant';
+                if (this.bleedTurns > 0 && finalBleedDamage > 0) {
+                    logs.push(`${this.name} subit ${finalBleedDamage} degats de saignement (${this.bleedTurns} ${turnLabel}).`);
+                } else if (this.bleedTurns > 0) {
+                    logs.push(`La protection de ${this.name} absorbe le saignement (${this.bleedTurns} ${turnLabel}).`);
+                } else {
+                    if (finalBleedDamage > 0) {
+                        logs.push(`${this.name} subit ${finalBleedDamage} degats de saignement.`);
+                    } else {
+                        logs.push(`La protection de ${this.name} absorbe le saignement.`);
+                    }
+                    this.bleedDamage = 0;
+                }
+
+                if (!this.isAlive()) {
+                    logs.push(`${this.name} succombe a son saignement.`);
+                } else if (this.bleedTurns === 0) {
+                    logs.push(`${this.name} n'est plus en saignement.`);
                 }
             }
         }
@@ -1687,6 +1763,15 @@ class Character {
         this.usedPerforatingArrowThisTurn = this.perforatingArrowCooldownTurns > 0;
     }
 
+    canUsePoisonArrow() {
+        return this.classType === 'Archer' && this.poisonArrowCooldownTurns <= 0;
+    }
+
+    setPoisonArrowCooldown(turns) {
+        this.poisonArrowCooldownTurns = Math.max(0, Math.floor(turns || 0));
+        this.usedPoisonArrowThisTurn = this.poisonArrowCooldownTurns > 0;
+    }
+
     canUseSkeletonSummon() {
         return this.classType === 'Necromancer' && this.skeletonSummonCooldownTurns <= 0;
     }
@@ -1712,6 +1797,8 @@ class Character {
         this.usedTargetedShotThisTurn = false;
         this.perforatingArrowCooldownTurns = 0;
         this.usedPerforatingArrowThisTurn = false;
+        this.poisonArrowCooldownTurns = 0;
+        this.usedPoisonArrowThisTurn = false;
         this.skeletonSummonCooldownTurns = 0;
         this.usedSkeletonSummonThisTurn = false;
         this.pendingCoupDeMortFollowUp = false;
@@ -1916,7 +2003,7 @@ class Character {
         const backstabSkillRank = this.getSkillRank('rogue_backstab');
         const skillBonus = backstabSkillRank > 1 ? (backstabSkillRank - 1) * 0.03 : 0;
         const bonusChance = (isTargetStunned ? BACKSTAB_STUN_BONUS_CHANCE : 0) + skillBonus;
-        return Math.max(0.25, Math.min(0.95, baseChance + bonusChance));
+        return Math.max(0.25, Math.min(BACKSTAB_MAX_SUCCESS_CHANCE, baseChance + bonusChance));
     }
 
     isArcherArrowAction(action = '') {
@@ -3157,6 +3244,10 @@ class Character {
         }
 
         if (action === 'Fleche empoisonnee') {
+            if (!this.canUsePoisonArrow()) {
+                return `${this.name} ne peut pas encore utiliser Fleche empoisonnee (${this.poisonArrowCooldownTurns} tours restants).`;
+            }
+            this.setPoisonArrowCooldown(2);
             const rawDamage = this.scaleArcherArrowDamage(3, action, monster);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damageContext = this.buildArcherArrowDamageContext(action);
@@ -4014,6 +4105,8 @@ function updateCharacterUI() {
         const coldNumbLine = coldNumbText ? `<br><span class="debuff-status">${coldNumbText}</span>` : '';
         const burnText = typeof char.getBurnStatusText === 'function' ? char.getBurnStatusText() : '';
         const burnLine = burnText ? `<br><span class="debuff-status">${burnText}</span>` : '';
+        const bleedText = typeof char.getBleedStatusText === 'function' ? char.getBleedStatusText() : '';
+        const bleedLine = bleedText ? `<br><span class="debuff-status">${bleedText}</span>` : '';
         const infectionText = typeof char.getInfectionStatusText === 'function' ? char.getInfectionStatusText() : '';
         const infectionLine = infectionText ? `<br><span class="debuff-status">${infectionText}</span>` : '';
         const protectionText = typeof char.getProtectionStatusText === 'function' ? char.getProtectionStatusText() : '';
@@ -4040,6 +4133,9 @@ function updateCharacterUI() {
         const perforatingArrowLine = (char.classType === 'Archer' && char.perforatingArrowCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Fleche perforante recharge: ${char.perforatingArrowCooldownTurns} tours</span>`
             : '';
+        const poisonArrowLine = (char.classType === 'Archer' && char.poisonArrowCooldownTurns > 0)
+            ? `<br><span class="skill-cooldown">Fleche empoisonnee recharge: ${char.poisonArrowCooldownTurns} tours</span>`
+            : '';
         const summonLine = (char.classType === 'Necromancer' && char.skeletonSummonCooldownTurns > 0)
             ? `<br><span class="skill-cooldown">Invocation squelette recharge: ${char.skeletonSummonCooldownTurns} tours</span>`
             : '';
@@ -4065,6 +4161,7 @@ function updateCharacterUI() {
             ${webLine}
             ${coldNumbLine}
             ${burnLine}
+            ${bleedLine}
             ${infectionLine}
             ${protectionLine}
             ${warCryLine}
@@ -4076,6 +4173,7 @@ function updateCharacterUI() {
             ${backstabLine}
             ${targetedShotLine}
             ${perforatingArrowLine}
+            ${poisonArrowLine}
             ${summonLine}
         `;
 
@@ -4242,6 +4340,7 @@ function renderInventoryCharacterHeader(char, characterIndex) {
     const webText = typeof char.getWebStatusText === 'function' ? char.getWebStatusText() : '';
     const coldNumbText = typeof char.getColdNumbStatusText === 'function' ? char.getColdNumbStatusText() : '';
     const burnText = typeof char.getBurnStatusText === 'function' ? char.getBurnStatusText() : '';
+    const bleedText = typeof char.getBleedStatusText === 'function' ? char.getBleedStatusText() : '';
     const infectionText = typeof char.getInfectionStatusText === 'function' ? char.getInfectionStatusText() : '';
     const protectionText = typeof char.getProtectionStatusText === 'function' ? char.getProtectionStatusText() : '';
     const warCryText = typeof char.getWarCryStatusText === 'function' ? char.getWarCryStatusText() : '';
@@ -4250,7 +4349,7 @@ function renderInventoryCharacterHeader(char, characterIndex) {
         ? char.getDamageResistanceSummaryText()
         : '';
     const inventoryPortraitClass = `inventory-character-portrait${typeof char.isInfected === 'function' && char.isInfected() ? ' status-infected' : ''}`;
-    const statusLines = [weaknessText, webText, coldNumbText, burnText, infectionText, protectionText, warCryText, provocationText].filter(Boolean)
+    const statusLines = [weaknessText, webText, coldNumbText, burnText, bleedText, infectionText, protectionText, warCryText, provocationText].filter(Boolean)
         .map((status) => `<div class="inventory-status">${status}</div>`)
         .join('');
 

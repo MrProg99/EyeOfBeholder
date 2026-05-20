@@ -11,6 +11,40 @@ const MONSTER_DATA = {
         image: 'Images/Goblin.png',
         abilities: ['Attaque basique']
     },
+    goblin_engineer: {
+        id: 'goblin_engineer',
+        name: 'Gobelin ingenieur',
+        monsterLevel: 2,
+        health: 42,
+        attack: 7,
+        defense: 2,
+        role: 'goblin_engineer',
+        bombSummonType: 'engineer_bomb',
+        bombFuseTurns: 2,
+        bombCooldownTurns: 2,
+        bombExplosionDamage: 10,
+        image: 'Images/GobelinIngenieur.png',
+        abilities: [
+            'Coup de cle (petite attaque physique)',
+            'Fabrique une bombe (explose apres 2 tours si elle survit)',
+            'Cooldown bombe: 2 tours'
+        ]
+    },
+    engineer_bomb: {
+        id: 'engineer_bomb',
+        name: 'Bombe',
+        monsterLevel: 1,
+        health: 14,
+        attack: 1,
+        defense: 0,
+        role: 'engineer_bomb',
+        rewardEligible: false,
+        bombFuseTurns: 2,
+        bombExplosionDamage: 10,
+        bombExplosionDamageType: 'fire',
+        image: 'Images/Bombe.png',
+        abilities: ['Explose apres 2 tours si elle n est pas detruite']
+    },
     orc: {
         id: 'orc',
         name: 'Orc',
@@ -124,7 +158,7 @@ const MONSTER_DATA = {
             'Malediction (Affaibli sur un heros)',
             'Drain mineur (vole un peu de vie)',
             'Soin impie (soigne un allie)',
-            'Appel des ombres (invoque un squelette faible)'
+            'Appel des ombres (invoque un squelette)'
         ]
     },
     minor_specter: {
@@ -145,6 +179,21 @@ const MONSTER_DATA = {
             'Toucher spectral (petite attaque magique)',
             'Drain mineur (inflige des degats et se soigne)',
             'Frisson d outre-tombe (Affaibli)'
+        ]
+    },
+    cerberus: {
+        id: 'cerberus',
+        name: 'Cerbere',
+        monsterLevel: 6,
+        health: 180,
+        attack: 18,
+        defense: 9,
+        role: 'cerberus',
+        damageResistances: { fire: 20, poison: 22, bleed: 16, magic: 10 },
+        image: 'Images/Cerbere.png',
+        abilities: [
+            'Hurlement des trois tetes (attaque speciale qui touche tous les heros)',
+            'Morsure sanglante (attaque normale + saignement)'
         ]
     },
     green_slime: {
@@ -324,24 +373,27 @@ const MONSTER_DATA = {
     skeleton_weak: {
         id: 'skeleton_weak',
         name: 'Squelette invoque',
-        monsterLevel: 1,
-        health: 16,
-        attack: 6,
-        defense: 1,
+        monsterLevel: 2,
+        health: 26,
+        attack: 8,
+        defense: 3,
         role: 'skeleton_minion',
         damageResistances: { poison: 30, bleed: 75 },
         image: 'Images/Skelette.png',
-        abilities: ['Attaque basique faible']
+        abilities: ['Attaque basique']
     }
 };
-const MONSTER_SPAWN_POOL = ['goblin', 'orc', 'troll', 'spider', 'dark_imp', 'cultist', 'minor_specter', 'rat'];
+const MONSTER_SPAWN_POOL = ['goblin', 'orc', 'troll', 'spider', 'dark_imp', 'cultist', 'minor_specter', 'rat', 'cerberus'];
 const MONSTER_FORCE_KEY_BY_TYPE = {
     shaman: 'shaman',
     kobold: 'kobold',
     kobold_chief: 'kobold_chief',
+    goblin_engineer: 'goblin_engineer',
+    engineer_bomb: 'engineer_bomb',
     dark_imp: 'dark_imp',
     cultist: 'cultist',
     minor_specter: 'minor_specter',
+    cerberus: 'cerberus',
     green_slime: 'green_slime',
     ice_golem: 'ice_golem',
     fire_golem: 'fire_golem',
@@ -520,6 +572,7 @@ class Monster {
         this.name = name;
         this.monsterType = typeof options.id === 'string' ? options.id : '';
         this.isBossMonster = Boolean(options.isBoss);
+        this.rewardEligible = options.rewardEligible !== false;
         const rawMonsterLevel = Object.prototype.hasOwnProperty.call(options, 'monsterLevel')
             ? options.monsterLevel
             : options.level;
@@ -605,6 +658,15 @@ class Monster {
         this.chainLightningBolts = Math.max(0, Math.floor(options.chainLightningBolts || 0));
         this.chainLightningManaCost = Math.max(0, Math.floor(options.chainLightningManaCost || 0));
         this.summonManaCost = Math.max(0, Math.floor(options.summonManaCost || 0));
+        this.bombSummonType = typeof options.bombSummonType === 'string' ? options.bombSummonType : '';
+        this.bombFuseTurns = Math.max(0, Math.floor(options.bombFuseTurns || 0));
+        this.bombExplosionDamage = Math.max(0, Math.floor(options.bombExplosionDamage || 0));
+        this.bombExplosionDamageType = typeof options.bombExplosionDamageType === 'string' && options.bombExplosionDamageType.length > 0
+            ? options.bombExplosionDamageType
+            : 'fire';
+        this.bombCooldownDuration = Math.max(0, Math.floor(options.bombCooldownTurns || 0));
+        this.bombCooldownRemaining = 0;
+        this.bombUsedThisTurn = false;
         this.summonChance = Number.isFinite(options.summonChance)
             ? Math.max(0, Math.min(1, Number(options.summonChance)))
             : 0;
@@ -827,12 +889,24 @@ class Monster {
         return this.role === 'minor_specter';
     }
 
+    isCerberus() {
+        return this.role === 'cerberus';
+    }
+
     isArchmage() {
         return this.role === 'archmage';
     }
 
     isRat() {
         return this.role === 'rat';
+    }
+
+    isGoblinEngineer() {
+        return this.role === 'goblin_engineer';
+    }
+
+    isEngineerBomb() {
+        return this.role === 'engineer_bomb';
     }
 
     isBoss() {
@@ -877,6 +951,24 @@ class Monster {
             this.poisonCloudCooldownRemaining = Math.max(this.poisonCloudCooldownRemaining, this.poisonCloudCooldownDuration);
             this.poisonCloudUsedThisTurn = true;
         }
+    }
+
+    canDeployBomb() {
+        return this.bombCooldownRemaining <= 0;
+    }
+
+    startBombCooldown() {
+        if (this.bombCooldownDuration > 0) {
+            this.bombCooldownRemaining = Math.max(this.bombCooldownRemaining, this.bombCooldownDuration);
+            this.bombUsedThisTurn = true;
+        }
+    }
+
+    consumeBombFuseTurn() {
+        if (this.bombFuseTurns > 0) {
+            this.bombFuseTurns = Math.max(0, this.bombFuseTurns - 1);
+        }
+        return this.bombFuseTurns;
     }
 
     getDeathSplitChildren() {
@@ -1030,6 +1122,13 @@ class Monster {
                 this.poisonCloudUsedThisTurn = false;
             } else {
                 this.poisonCloudCooldownRemaining = Math.max(0, this.poisonCloudCooldownRemaining - 1);
+            }
+        }
+        if (this.bombCooldownRemaining > 0) {
+            if (this.bombUsedThisTurn) {
+                this.bombUsedThisTurn = false;
+            } else {
+                this.bombCooldownRemaining = Math.max(0, this.bombCooldownRemaining - 1);
             }
         }
         if (this.isMarked()) {

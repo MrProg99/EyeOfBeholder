@@ -104,6 +104,7 @@ const FLOOR_MONSTER_POOL_BY_TIER = Object.freeze([
             Object.freeze({ type: 'rat', weight: 12 }),
             Object.freeze({ type: 'orc', weight: 24 }),
             Object.freeze({ type: 'spider', weight: 17 }),
+            Object.freeze({ type: 'goblin_engineer', weight: 4 }),
             Object.freeze({ type: 'dark_imp', weight: 7 }),
             Object.freeze({ type: 'cultist', weight: 5 })
         ])
@@ -113,6 +114,8 @@ const FLOOR_MONSTER_POOL_BY_TIER = Object.freeze([
         entries: Object.freeze([
             Object.freeze({ type: 'orc', weight: 18 }),
             Object.freeze({ type: 'spider', weight: 16 }),
+            Object.freeze({ type: 'goblin_engineer', weight: 8 }),
+            Object.freeze({ type: 'cerberus', weight: 3 }),
             Object.freeze({ type: 'dark_imp', weight: 18 }),
             Object.freeze({ type: 'cultist', weight: 16 }),
             Object.freeze({ type: 'troll', weight: 14 }),
@@ -125,9 +128,11 @@ const FLOOR_MONSTER_POOL_BY_TIER = Object.freeze([
         maxFloor: 8,
         entries: Object.freeze([
             Object.freeze({ type: 'troll', weight: 22 }),
+            Object.freeze({ type: 'cerberus', weight: 8 }),
             Object.freeze({ type: 'dark_imp', weight: 17 }),
             Object.freeze({ type: 'cultist', weight: 18 }),
             Object.freeze({ type: 'minor_specter', weight: 20 }),
+            Object.freeze({ type: 'goblin_engineer', weight: 7 }),
             Object.freeze({ type: 'spider', weight: 10 }),
             Object.freeze({ type: 'orc', weight: 8 }),
             Object.freeze({ type: 'rat', weight: 3 }),
@@ -137,10 +142,12 @@ const FLOOR_MONSTER_POOL_BY_TIER = Object.freeze([
     Object.freeze({
         maxFloor: Number.POSITIVE_INFINITY,
         entries: Object.freeze([
+            Object.freeze({ type: 'cerberus', weight: 12 }),
             Object.freeze({ type: 'minor_specter', weight: 24 }),
             Object.freeze({ type: 'troll', weight: 22 }),
             Object.freeze({ type: 'cultist', weight: 20 }),
             Object.freeze({ type: 'dark_imp', weight: 17 }),
+            Object.freeze({ type: 'goblin_engineer', weight: 6 }),
             Object.freeze({ type: 'spider', weight: 9 }),
             Object.freeze({ type: 'orc', weight: 5 }),
             Object.freeze({ type: 'rat', weight: 2 }),
@@ -152,6 +159,13 @@ const RED_ROOM_XP_MULTIPLIER = 1.25;
 const RED_ROOM_HEALTH_MULTIPLIER = 1.2;
 const RED_ROOM_ATTACK_MULTIPLIER = 1.15;
 const RED_ROOM_DEFENSE_MULTIPLIER = 1.1;
+const FLOOR_MONSTER_STAT_BOOST_START_FLOOR = 3;
+const FLOOR_MONSTER_HEALTH_BOOST_AT_START = 0.1;
+const FLOOR_MONSTER_HEALTH_BOOST_PER_FLOOR = 0.03;
+const FLOOR_MONSTER_DEFENSE_BOOST_AT_START = 0.08;
+const FLOOR_MONSTER_DEFENSE_BOOST_PER_FLOOR = 0.02;
+const FLOOR_MONSTER_DEFENSE_FLAT_BONUS_START = 1;
+const FLOOR_MONSTER_DEFENSE_FLAT_BONUS_EVERY_FLOORS = 3;
 const RED_ROOM_EXTRA_DAMAGE_FIELDS = [
     'infernalSparkDamage',
     'deathExplosionFireDamage',
@@ -204,7 +218,10 @@ const MONSTER_PORTRAITS = {
     'Chevalier spectrale': 'Images/ChevalierSpectrale.png',
     'Reine araignee': 'Images/ReineAraignee.png',
     Archimage: 'Images/Archimage.png',
+    Cerbere: 'Images/Cerbere.png',
     Rat: 'Images/Rat.png',
+    'Gobelin ingenieur': 'Images/GobelinIngenieur.png',
+    Bombe: 'Images/Bombe.png',
     Araignee: 'Images/Spider.png',
     'Bebe araignee': 'Images/Spider.png',
     'Squelette invoque': 'Images/Skelette.png'
@@ -255,7 +272,10 @@ const INITIATIVE_BASE = {
         'Chevalier spectrale': 10,
         'Reine araignee': 12,
         Archimage: 13,
+        Cerbere: 10,
         Rat: 16,
+        'Gobelin ingenieur': 12,
+        Bombe: 4,
         'Squelette invoque': 9
     }
 };
@@ -787,6 +807,9 @@ function getCombatPortraitStatusEntries(entity, options = {}) {
     if (typeof entity.isPoisoned === 'function' && entity.isPoisoned()) {
         pushStatusEntry('poison', entity.poisonTurns, 'Poison');
     }
+    if (typeof entity.isBleeding === 'function' && entity.isBleeding()) {
+        pushStatusEntry('bleeding', entity.bleedTurns, 'Saignement');
+    }
     if (typeof entity.isInfected === 'function' && entity.isInfected()) {
         pushStatusEntry('poison', entity.infectionTurns, 'Infection');
     }
@@ -861,13 +884,36 @@ function buildBackstabActionHint(character) {
     const chanceWithoutStun = character.getBackstabSuccessChance(null);
     const chanceWithStun = character.getBackstabSuccessChance({ stunnedTurns: 1 });
 
-    return `Chance sans etourdissement: ${formatRateAsPercent(chanceWithoutStun)} | Chance cible etourdie: ${formatRateAsPercent(chanceWithStun)} | Per: ${safePerception}, Rang: ${backstabRank} | Formule: 15% + 2.5% Per + ${rankBonusPercent}% rang +20% si cible etourdie`;
+    return `Chance sans etourdissement: ${formatRateAsPercent(chanceWithoutStun)} | Chance cible etourdie: ${formatRateAsPercent(chanceWithStun)} | Per: ${safePerception}, Rang: ${backstabRank} | Formule: 15% + 2.5% Per + ${rankBonusPercent}% rang +20% si cible etourdie (cap 75%)`;
+}
+
+function buildAssomerActionHint(character) {
+    if (!character || typeof character.getAssomerSuccessChance !== 'function') {
+        return '';
+    }
+
+    const safeAttack = typeof character.getCurrentAttack === 'function'
+        ? Math.max(0, Math.floor(Number(character.getCurrentAttack()) || 0))
+        : Math.max(0, Math.floor(Number(character.attack) || 0));
+    const assomerRank = typeof character.getSkillRank === 'function'
+        ? Math.max(0, Math.floor(character.getSkillRank('warrior_assomer')))
+        : 0;
+    const rankBonusPercent = assomerRank > 1 ? ((assomerRank - 1) * 3) : 0;
+    const successChance = character.getAssomerSuccessChance();
+
+    return `Chance d etourdir: ${formatRateAsPercent(successChance)} | Att: ${safeAttack}, Rang: ${assomerRank} | Formule: 20% + 2% Att + ${rankBonusPercent}% rang`;
 }
 
 function buildCombatActionHint(action, manaCost = 0, disabledReason = '', character = null) {
     const hintParts = [String(action || 'Action')];
     if (manaCost > 0) {
         hintParts.push(`Cout: ${manaCost} mana`);
+    }
+    if (action === 'Assomer') {
+        const assomerHint = buildAssomerActionHint(character);
+        if (assomerHint) {
+            hintParts.push(assomerHint);
+        }
     }
     if (action === 'Backstab') {
         const backstabHint = buildBackstabActionHint(character);
@@ -1907,8 +1953,44 @@ function isRedMonsterRoom(room) {
     return Boolean(room && room.type === 'monster' && room.isRedRoom);
 }
 
+function applyFloorMonsterModifiers(monster, floorIndex) {
+    if (!monster || typeof monster !== 'object') {
+        return monster;
+    }
+    if (monster.floorEnhanced) {
+        return monster;
+    }
+
+    const floorNumber = getFloorNumberFromIndex(floorIndex);
+    if (floorNumber < FLOOR_MONSTER_STAT_BOOST_START_FLOOR) {
+        return monster;
+    }
+
+    const floorsPastStart = floorNumber - FLOOR_MONSTER_STAT_BOOST_START_FLOOR;
+    const healthMultiplier = 1
+        + FLOOR_MONSTER_HEALTH_BOOST_AT_START
+        + (floorsPastStart * FLOOR_MONSTER_HEALTH_BOOST_PER_FLOOR);
+    const defenseMultiplier = 1
+        + FLOOR_MONSTER_DEFENSE_BOOST_AT_START
+        + (floorsPastStart * FLOOR_MONSTER_DEFENSE_BOOST_PER_FLOOR);
+    const flatDefenseBonus = FLOOR_MONSTER_DEFENSE_FLAT_BONUS_START
+        + Math.floor(floorsPastStart / FLOOR_MONSTER_DEFENSE_FLAT_BONUS_EVERY_FLOORS);
+
+    const originalMaxHealth = Math.max(1, Math.floor(Number(monster.maxHealth) || Number(monster.health) || 1));
+    const originalDefense = Math.max(0, Math.floor(Number(monster.defense) || 0));
+
+    monster.maxHealth = Math.max(1, Math.round(originalMaxHealth * healthMultiplier));
+    monster.health = monster.maxHealth;
+    monster.defense = Math.max(0, Math.round((originalDefense * defenseMultiplier) + flatDefenseBonus));
+    monster.floorEnhanced = true;
+    return monster;
+}
+
 function getMonsterExperienceValue(monster) {
     if (!monster || typeof monster !== 'object') {
+        return 0;
+    }
+    if (monster.rewardEligible === false) {
         return 0;
     }
     const explicitValue = Number(monster.baseExperienceValue);
@@ -1945,11 +2027,15 @@ function applyRedRoomMonsterModifiers(monster) {
     return monster;
 }
 
-function createMonsterForRoom(room, forcedType = null, overrides = {}) {
+function createMonsterForRoom(room, forcedType = null, overrides = {}, floorIndex = null) {
     const monster = createMonster(forcedType, overrides);
     if (!monster) {
         return monster;
     }
+    const normalizedFloorIndex = Number.isFinite(Number(floorIndex))
+        ? Math.max(0, Math.floor(Number(floorIndex)))
+        : Math.max(0, Math.floor(Number(dungeon && dungeon.currentFloor) || 0));
+    applyFloorMonsterModifiers(monster, normalizedFloorIndex);
     if (isRedMonsterRoom(room)) {
         return applyRedRoomMonsterModifiers(monster);
     }
@@ -2122,41 +2208,45 @@ function updateUI() {
         if (forcedMonsterType) {
             if (forcedMonsterType === 'kobold_warband') {
                 const warband = createKoboldWarbandEncounter();
-                if (redRoomActive) {
-                    warband.forEach((monster) => {
-                        if (monster) {
-                            applyRedRoomMonsterModifiers(monster);
-                        }
-                    });
-                }
+                warband.forEach((monster) => {
+                    if (!monster) {
+                        return;
+                    }
+                    applyFloorMonsterModifiers(monster, currentFloorIndex);
+                    if (redRoomActive) {
+                        applyRedRoomMonsterModifiers(monster);
+                    }
+                });
                 currentMonsters.push(...warband);
                 room.monsterCount = currentMonsters.length;
             } else {
                 for (let i = 0; i < count; i += 1) {
-                    currentMonsters.push(createMonsterForRoom(room, forcedMonsterType));
+                    currentMonsters.push(createMonsterForRoom(room, forcedMonsterType, {}, currentFloorIndex));
                 }
             }
         } else {
             const hasKoboldWarband = Math.random() < getKoboldWarbandEncounterChanceForFloor(currentFloorIndex);
             if (hasKoboldWarband) {
                 const warband = createKoboldWarbandEncounter();
-                if (redRoomActive) {
-                    warband.forEach((monster) => {
-                        if (monster) {
-                            applyRedRoomMonsterModifiers(monster);
-                        }
-                    });
-                }
+                warband.forEach((monster) => {
+                    if (!monster) {
+                        return;
+                    }
+                    applyFloorMonsterModifiers(monster, currentFloorIndex);
+                    if (redRoomActive) {
+                        applyRedRoomMonsterModifiers(monster);
+                    }
+                });
                 currentMonsters.push(...warband);
                 room.monsterCount = currentMonsters.length;
             } else {
                 const hasShaman = Math.random() < getShamanEncounterChanceForFloor(currentFloorIndex);
                 if (hasShaman) {
-                    currentMonsters.push(createMonsterForRoom(room, 'shaman'));
+                    currentMonsters.push(createMonsterForRoom(room, 'shaman', {}, currentFloorIndex));
                 }
                 while (currentMonsters.length < count) {
                     const rolledMonsterType = rollStandardMonsterTypeForFloor(currentFloorIndex);
-                    currentMonsters.push(createMonsterForRoom(room, rolledMonsterType));
+                    currentMonsters.push(createMonsterForRoom(room, rolledMonsterType, {}, currentFloorIndex));
                 }
                 // Randomize order so the shaman is not always first
                 for (let i = currentMonsters.length - 1; i > 0; i--) {
@@ -3508,6 +3598,15 @@ function updateCombatUI() {
         if (typeof m.isArchmage === 'function' && m.isArchmage()) {
             roleTags.push('Archimage');
         }
+        if (typeof m.isCerberus === 'function' && m.isCerberus()) {
+            roleTags.push('Cerbere');
+        }
+        if (typeof m.isGoblinEngineer === 'function' && m.isGoblinEngineer()) {
+            roleTags.push('Ingenieur');
+        }
+        if (typeof m.isEngineerBomb === 'function' && m.isEngineerBomb()) {
+            roleTags.push('Bombe');
+        }
         if (typeof m.isBoss === 'function' && m.isBoss()) {
             roleTags.push('Boss');
         }
@@ -3613,6 +3712,10 @@ function updateCombatUI() {
                 disabledReason = `Recharge: ${activeChar.perforatingArrowCooldownTurns} tours`;
             }
 
+            if (action === 'Fleche empoisonnee' && typeof activeChar.canUsePoisonArrow === 'function' && !activeChar.canUsePoisonArrow()) {
+                disabledReason = `Recharge: ${activeChar.poisonArrowCooldownTurns} tours`;
+            }
+
             if (action === 'Invocation de squelette' && typeof activeChar.canUseSkeletonSummon === 'function' && !activeChar.canUseSkeletonSummon()) {
                 disabledReason = `Recharge: ${activeChar.skeletonSummonCooldownTurns} tours`;
             }
@@ -3639,9 +3742,12 @@ function updateCombatUI() {
             }
 
             const actionHint = buildCombatActionHint(action, actionManaCost, disabledReason, activeChar);
-            const actionIndicator = action === 'Backstab' && typeof activeChar.getBackstabSuccessChance === 'function'
-                ? formatRateAsPercent(activeChar.getBackstabSuccessChance(null))
-                : '';
+            let actionIndicator = '';
+            if (action === 'Backstab' && typeof activeChar.getBackstabSuccessChance === 'function') {
+                actionIndicator = formatRateAsPercent(activeChar.getBackstabSuccessChance(null));
+            } else if (action === 'Assomer' && typeof activeChar.getAssomerSuccessChance === 'function') {
+                actionIndicator = formatRateAsPercent(activeChar.getAssomerSuccessChance());
+            }
             setCombatActionButtonVisual(btn, action, actionHint, actionIndicator);
             if (disabledReason) {
                 btn.disabled = true;
@@ -4050,6 +4156,15 @@ function performMonsterTurnEntity(monster) {
     const usedRatAction = (typeof monster.isRat === 'function' && monster.isRat())
         ? performRatAction(monster, alliedTargets, aliveChars)
         : false;
+    const usedCerberusAction = (typeof monster.isCerberus === 'function' && monster.isCerberus())
+        ? performCerberusAction(monster, alliedTargets, aliveChars)
+        : false;
+    const usedGoblinEngineerAction = (typeof monster.isGoblinEngineer === 'function' && monster.isGoblinEngineer())
+        ? performGoblinEngineerAction(monster, aliveMonsters, alliedTargets, aliveChars)
+        : false;
+    const usedEngineerBombAction = (typeof monster.isEngineerBomb === 'function' && monster.isEngineerBomb())
+        ? performEngineerBombAction(monster, aliveChars)
+        : false;
     if (typeof monster.isSpectralKnight === 'function' && monster.isSpectralKnight()) {
         performSpectralKnightAction(monster, aliveChars);
     }
@@ -4064,6 +4179,9 @@ function performMonsterTurnEntity(monster) {
         && !usedDarkImpAction
         && !usedArchmageAction
         && !usedRatAction
+        && !usedCerberusAction
+        && !usedGoblinEngineerAction
+        && !usedEngineerBombAction
     ) {
         performMonsterBasicAttack(monster, alliedTargets);
     }
@@ -4296,6 +4414,12 @@ function buildPureteDebuffSummary(targetCharacter) {
         : '';
     if (burnText) {
         debuffs.push(burnText);
+    }
+    const bleedText = typeof targetCharacter.getBleedStatusText === 'function'
+        ? targetCharacter.getBleedStatusText()
+        : '';
+    if (bleedText) {
+        debuffs.push(bleedText);
     }
     const infectionText = typeof targetCharacter.getInfectionStatusText === 'function'
         ? targetCharacter.getInfectionStatusText()
@@ -5216,6 +5340,178 @@ function performArchmageAction(archmage, aliveMonsters, aliveAllies, aliveChars)
     return false;
 }
 
+function performEngineerBombAction(bomb, aliveChars) {
+    if (!bomb || typeof bomb.isEngineerBomb !== 'function' || !bomb.isEngineerBomb()) {
+        return false;
+    }
+
+    const remainingFuseTurns = typeof bomb.consumeBombFuseTurn === 'function'
+        ? bomb.consumeBombFuseTurn()
+        : Math.max(0, Math.floor((bomb.bombFuseTurns || 0) - 1));
+
+    if (remainingFuseTurns > 0) {
+        const turnLabel = remainingFuseTurns > 1 ? 'tours' : 'tour';
+        logMessage(`${bomb.name} clignote... ${remainingFuseTurns} ${turnLabel} avant l explosion.`);
+        return true;
+    }
+
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    const explosionDamage = Math.max(1, Math.floor(bomb.bombExplosionDamage || 0));
+    if (livingHeroes.length === 0 || explosionDamage <= 0) {
+        bomb.health = 0;
+        logMessage(`${bomb.name} explose sans blesser personne.`);
+        return true;
+    }
+
+    const damageLogParts = [];
+    livingHeroes.forEach((target) => {
+        const damage = target.takeDamage(explosionDamage, {
+            damageType: bomb.bombExplosionDamageType || 'fire',
+            attacker: bomb,
+            enableRiposte: false,
+            ignoreBlocking: true
+        });
+        damageLogParts.push(`${target.name}: ${damage}`);
+    });
+    bomb.health = 0;
+    logMessage(`${bomb.name} explose ! ${damageLogParts.join(' | ')} degats.`);
+    return true;
+}
+
+function performGoblinEngineerAction(engineer, aliveMonsters, aliveAllies, aliveChars) {
+    if (!engineer || typeof engineer.isGoblinEngineer !== 'function' || !engineer.isGoblinEngineer()) {
+        return false;
+    }
+
+    const livingMonsters = Array.isArray(aliveMonsters) ? aliveMonsters.filter((entity) => entity && entity.isAlive()) : [];
+    const livingAllies = Array.isArray(aliveAllies) ? aliveAllies.filter((entity) => entity && entity.isAlive()) : [];
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    if (livingAllies.length === 0 || livingHeroes.length === 0) {
+        return false;
+    }
+
+    const activeBomb = livingMonsters.find((monster) => (
+        monster
+        && monster !== engineer
+        && typeof monster.isEngineerBomb === 'function'
+        && monster.isEngineerBomb()
+        && monster.engineerBombOwnerEntityId === engineer.entityId
+    ));
+
+    const summonType = typeof engineer.bombSummonType === 'string' && engineer.bombSummonType.length > 0
+        ? engineer.bombSummonType
+        : 'engineer_bomb';
+    const canDeployBomb = Boolean(
+        !activeBomb
+        && summonType
+        && livingMonsters.length < MAX_MONSTERS_IN_COMBAT
+        && typeof engineer.canDeployBomb === 'function'
+        && engineer.canDeployBomb()
+    );
+
+    if (canDeployBomb) {
+        const summonedBomb = createMonster(summonType, {
+            bombFuseTurns: Math.max(1, Math.floor(engineer.bombFuseTurns || 2)),
+            bombExplosionDamage: Math.max(1, Math.floor(engineer.bombExplosionDamage || 10)),
+            bombExplosionDamageType: 'fire'
+        });
+        if (registerSummonedMonster(summonedBomb)) {
+            summonedBomb.engineerBombOwnerEntityId = engineer.entityId;
+            if (typeof engineer.startBombCooldown === 'function') {
+                engineer.startBombCooldown();
+            }
+            const fuseTurns = Math.max(1, Math.floor(summonedBomb.bombFuseTurns || 2));
+            const turnLabel = fuseTurns > 1 ? 'tours' : 'tour';
+            logMessage(`${engineer.name} fabrique une bombe ! Explosion dans ${fuseTurns} ${turnLabel} si elle n est pas detruite.`);
+            return true;
+        }
+    }
+
+    const target = pickMonsterAttackTarget(livingAllies);
+    if (!target) {
+        return false;
+    }
+    const attackValue = typeof engineer.getCurrentAttack === 'function' ? engineer.getCurrentAttack() : engineer.attack;
+    const rawDamage = Math.max(1, attackValue);
+    const damageContext = {
+        damageType: 'physical',
+        attacker: engineer,
+        enableRiposte: true
+    };
+    const damage = target.takeDamage(rawDamage, damageContext);
+    logMessage(`${engineer.name} utilise Coup de cle sur ${target.name} et inflige ${damage} degats.`);
+    logRiposteOutcome(damageContext.riposteOutcome);
+    if (!target.isAlive() && target.entityType === 'summon') {
+        logMessage(`${target.name} est detruit.`);
+    }
+    return true;
+}
+
+function performCerberusAction(cerberus, aliveAllies, aliveChars) {
+    if (!cerberus || typeof cerberus.isCerberus !== 'function' || !cerberus.isCerberus()) {
+        return false;
+    }
+
+    const livingAllies = Array.isArray(aliveAllies) ? aliveAllies.filter((entity) => entity && entity.isAlive()) : [];
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    if (livingAllies.length === 0 || livingHeroes.length === 0) {
+        return false;
+    }
+
+    const attackValue = typeof cerberus.getCurrentAttack === 'function' ? cerberus.getCurrentAttack() : cerberus.attack;
+    const specialAttackChance = 0.4;
+    const canUseThreeHeadsHowl = livingHeroes.length > 1;
+    if (canUseThreeHeadsHowl && Math.random() < specialAttackChance) {
+        const rawHowlDamage = Math.max(1, Math.round(attackValue * 0.82));
+        const damageParts = [];
+        livingHeroes.forEach((target) => {
+            const damage = target.takeDamage(rawHowlDamage, {
+                damageType: 'fire',
+                attacker: cerberus,
+                enableRiposte: false
+            });
+            damageParts.push(`${target.name}: ${damage}`);
+        });
+        logMessage(`${cerberus.name} dechaine Hurlement des trois tetes ! ${damageParts.join(' | ')} degats.`);
+        return true;
+    }
+
+    const biteTarget = pickMonsterAttackTarget(livingAllies);
+    if (!biteTarget) {
+        return false;
+    }
+
+    const rawBiteDamage = Math.max(1, attackValue);
+    const damageContext = {
+        damageType: 'physical',
+        attacker: cerberus,
+        enableRiposte: true
+    };
+    const biteDamage = biteTarget.takeDamage(rawBiteDamage, damageContext);
+
+    let bleedText = '';
+    const bleedDamage = Math.max(1, Math.round(attackValue * 0.4));
+    const bleedTurns = 2;
+    if (
+        biteDamage > 0
+        && biteTarget
+        && typeof biteTarget.applyBleed === 'function'
+        && typeof biteTarget.isAlive === 'function'
+        && biteTarget.isAlive()
+    ) {
+        const appliedTurns = Math.max(1, Math.floor(Number(biteTarget.applyBleed(bleedDamage, bleedTurns)) || bleedTurns));
+        const turnLabel = appliedTurns > 1 ? 'tours' : 'tour';
+        bleedText = ` ${biteTarget.name} saigne (${bleedDamage} degats/tour, ${appliedTurns} ${turnLabel}).`;
+    }
+
+    logMessage(`${cerberus.name} utilise Morsure sanglante sur ${biteTarget.name} et inflige ${biteDamage} degats.${bleedText}`);
+    logRiposteOutcome(damageContext.riposteOutcome);
+    if (!biteTarget.isAlive() && biteTarget.entityType === 'summon') {
+        logMessage(`${biteTarget.name} est detruit.`);
+    }
+    return true;
+}
+
 function performRatAction(rat, aliveAllies, aliveChars) {
     if (!rat || typeof rat.isRat !== 'function' || !rat.isRat()) {
         return false;
@@ -5349,7 +5645,7 @@ function performCultistAction(cultist, aliveMonsters, aliveAllies, aliveChars) {
             }
         }
         if (spawnedCount > 0) {
-            const label = spawnedCount > 1 ? 'squelettes faibles' : 'squelette faible';
+            const label = spawnedCount > 1 ? 'squelettes invoques' : 'squelette invoque';
             logMessage(`${cultist.name} utilise Appel des ombres et invoque ${spawnedCount} ${label}.`);
             return true;
         }
@@ -5893,7 +6189,11 @@ function grantLootFromDefeatedMonsters(defeatedMonsters) {
         rare: 'Rare',
         epic: 'Epique'
     };
-    defeatedMonsters.forEach(() => {
+    const rewardEligibleMonsters = Array.isArray(defeatedMonsters)
+        ? defeatedMonsters.filter((monster) => monster && monster.rewardEligible !== false)
+        : [];
+
+    rewardEligibleMonsters.forEach(() => {
         if (equipmentDropPool.length === 0 || Math.random() > MONSTER_DROP_CHANCE) {
             return;
         }
