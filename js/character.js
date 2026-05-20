@@ -96,6 +96,7 @@ const STARTING_EQUIPMENT_KITS = {
     ],
     Rogue: [
         { id: 'starter_rogue_weapon', name: 'Dague usee', type: 'weapon', minDamage: 3, maxDamage: 5, damageBonus: 0, defenseBonus: 0, strengthBonus: 1, perceptionBonus: 1, rarity: 'common' },
+        { id: 'starter_rogue_weapon', name: 'Dague usee', type: 'offhand',minDamage: 3, maxDamage: 5, damageBonus: 0, defenseBonus: 0, strengthBonus: 1, perceptionBonus: 1, rarity: 'common'  },        
         { id: 'starter_rogue_armor', name: 'Veste de cuir fin', type: 'armor', attackBonus: 0, defenseBonus: 0, rarity: 'common' },
         { id: 'starter_rogue_ring', name: 'Anneau discret', type: 'ring', attackBonus: 0, defenseBonus: 0, perceptionBonus: 1, rarity: 'common' },
         { id: 'starter_rogue_boots', name: 'Bottes legeres', type: 'boots', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, perceptionBonus: 1, rarity: 'common' }
@@ -226,7 +227,8 @@ const CLASS_SKILL_TREE = {
         { id: 'necro_drain_vie', action: 'Drain de vie', unlockLevel: 1, maxRank: 4, powerPerRank: 0.1 },
         { id: 'necro_affaiblissement', action: 'Affaiblissement', unlockLevel: 1, maxRank: 4, powerPerRank: 0.08 },
         { id: 'necro_squelette', action: 'Invocation de squelette', unlockLevel: 1, maxRank: 3, powerPerRank: 0.08 },
-        { id: 'necro_malediction', action: 'Malediction funeste', unlockLevel: 3, maxRank: 4, powerPerRank: 0.12 }
+        { id: 'necro_malediction', action: 'Malediction funeste', unlockLevel: 3, maxRank: 4, powerPerRank: 0.12 },
+        { id: 'necro_epidemie', action: 'Epidemie', unlockLevel: 5, maxRank: 1, rankDescription: 'Transfere les malus d une cible vers les autres monstres (hors etourdissement)' }
     ],
     Druid: [
         { id: 'druid_attaque_baton', action: 'Attaque au baton', unlockLevel: 1, maxRank: 3, powerPerRank: 0.08 },
@@ -2364,6 +2366,7 @@ class Character {
                 || action === 'Frappe de l ombre'
                 || action === 'Pluie de lames'
                 || action === 'Malediction funeste'
+                || action === 'Epidemie'
                 || action === 'Attaque normale'
                 || action === 'Attaque ciblee'
                 || action === 'Fleche perforante'
@@ -2666,6 +2669,172 @@ class Character {
             return `${this.name} maudit ${monster.name}: ${damage} degats et -${weakenAmount} attaque pendant ${weakenTurns} tours.`;
         }
 
+        if (action === 'Epidemie') {
+            const manaCost = 20;
+            if (this.mana < manaCost) {
+                return `${this.name} n'a pas assez de mana pour Epidemie.`;
+            }
+            if (!monster || typeof monster.isAlive !== 'function' || !monster.isAlive()) {
+                return `${this.name} n'a pas de cible valide pour Epidemie.`;
+            }
+
+            const aliveMonsters = (typeof getAliveCombatMonsters === 'function')
+                ? getAliveCombatMonsters()
+                : ((typeof currentMonsters !== 'undefined' && Array.isArray(currentMonsters))
+                    ? currentMonsters.filter((entity) => entity && typeof entity.isAlive === 'function' && entity.isAlive())
+                    : []);
+            const propagationTargets = aliveMonsters.filter((entity) => (
+                entity
+                && entity !== monster
+                && typeof entity.isAlive === 'function'
+                && entity.isAlive()
+            ));
+            if (propagationTargets.length === 0) {
+                return `${this.name} n'a aucune autre cible pour Epidemie.`;
+            }
+
+            const transferableDebuffs = [];
+            const sourceWeakenAmount = Math.max(0, Math.floor(Number(monster.attackWeakenAmount) || 0));
+            const sourceWeakenTurns = Math.max(0, Math.floor(Number(monster.attackWeakenTurns) || 0));
+            if (sourceWeakenAmount > 0 && sourceWeakenTurns > 0) {
+                transferableDebuffs.push({
+                    type: 'weakness',
+                    label: 'Affaiblissement',
+                    amount: sourceWeakenAmount,
+                    turns: sourceWeakenTurns
+                });
+            }
+
+            const sourceMarkPercent = Math.max(0, Number(monster.damageTakenVulnerabilityPercent) || 0);
+            const sourceMarkTurns = Math.max(0, Math.floor(Number(monster.damageTakenVulnerabilityTurns) || 0));
+            if (sourceMarkPercent > 0 && sourceMarkTurns > 0) {
+                transferableDebuffs.push({
+                    type: 'mark',
+                    label: 'Marque',
+                    percent: sourceMarkPercent,
+                    turns: sourceMarkTurns
+                });
+            }
+
+            const sourceBurnDamage = Math.max(0, Math.floor(Number(monster.burnDamage) || 0));
+            const sourceBurnTurns = Math.max(0, Math.floor(Number(monster.burnTurns) || 0));
+            if (sourceBurnDamage > 0 && sourceBurnTurns > 0) {
+                transferableDebuffs.push({
+                    type: 'burn',
+                    label: 'Brulure',
+                    damage: sourceBurnDamage,
+                    turns: sourceBurnTurns
+                });
+            }
+
+            const sourcePoisonDamage = Math.max(0, Math.floor(Number(monster.poisonDamage) || 0));
+            const sourcePoisonTurns = Math.max(0, Math.floor(Number(monster.poisonTurns) || 0));
+            if (sourcePoisonDamage > 0 && sourcePoisonTurns > 0) {
+                transferableDebuffs.push({
+                    type: 'poison',
+                    label: 'Poison',
+                    damage: sourcePoisonDamage,
+                    turns: sourcePoisonTurns
+                });
+            }
+
+            const sourceBleedDamage = Math.max(0, Math.floor(Number(monster.bleedDamage) || 0));
+            const sourceBleedStacks = Math.max(0, Math.floor(Number(monster.bleedStacks) || 0));
+            if (sourceBleedDamage > 0 && sourceBleedStacks > 0) {
+                transferableDebuffs.push({
+                    type: 'bleed',
+                    label: 'Saignement',
+                    damage: sourceBleedDamage,
+                    stacks: sourceBleedStacks
+                });
+            }
+
+            if (transferableDebuffs.length === 0) {
+                return `${this.name} ne trouve aucun malus a propager sur ${monster.name}.`;
+            }
+
+            this.mana -= manaCost;
+
+            propagationTargets.forEach((targetMonster) => {
+                transferableDebuffs.forEach((debuff) => {
+                    if (debuff.type === 'weakness') {
+                        if (typeof targetMonster.applyAttackWeakness === 'function') {
+                            targetMonster.applyAttackWeakness(debuff.amount, debuff.turns);
+                        } else {
+                            targetMonster.attackWeakenAmount = Math.max(Math.floor(targetMonster.attackWeakenAmount || 0), debuff.amount);
+                            targetMonster.attackWeakenTurns = Math.max(Math.floor(targetMonster.attackWeakenTurns || 0), debuff.turns);
+                        }
+                        return;
+                    }
+                    if (debuff.type === 'mark') {
+                        if (typeof targetMonster.applyDamageTakenVulnerability === 'function') {
+                            targetMonster.applyDamageTakenVulnerability(debuff.percent, debuff.turns);
+                        } else {
+                            targetMonster.damageTakenVulnerabilityPercent = Math.max(Number(targetMonster.damageTakenVulnerabilityPercent) || 0, debuff.percent);
+                            targetMonster.damageTakenVulnerabilityTurns = Math.max(Math.floor(targetMonster.damageTakenVulnerabilityTurns || 0), debuff.turns);
+                        }
+                        return;
+                    }
+                    if (debuff.type === 'burn') {
+                        if (typeof targetMonster.applyBurn === 'function') {
+                            targetMonster.applyBurn(debuff.damage, debuff.turns);
+                        } else {
+                            targetMonster.burnDamage = Math.max(Math.floor(targetMonster.burnDamage || 0), debuff.damage);
+                            targetMonster.burnTurns = Math.max(Math.floor(targetMonster.burnTurns || 0), debuff.turns);
+                        }
+                        return;
+                    }
+                    if (debuff.type === 'poison') {
+                        if (typeof targetMonster.applyPoison === 'function') {
+                            targetMonster.applyPoison(debuff.damage, debuff.turns);
+                        } else {
+                            targetMonster.poisonDamage = Math.max(Math.floor(targetMonster.poisonDamage || 0), debuff.damage);
+                            targetMonster.poisonTurns = Math.max(Math.floor(targetMonster.poisonTurns || 0), debuff.turns);
+                        }
+                        return;
+                    }
+                    if (debuff.type === 'bleed') {
+                        const currentBleedDamage = Math.max(0, Math.floor(Number(targetMonster.bleedDamage) || 0));
+                        const currentBleedStacks = Math.max(0, Math.floor(Number(targetMonster.bleedStacks) || 0));
+                        targetMonster.bleedDamage = currentBleedDamage + debuff.damage;
+                        targetMonster.bleedStacks = currentBleedStacks + debuff.stacks;
+                    }
+                });
+            });
+
+            transferableDebuffs.forEach((debuff) => {
+                if (debuff.type === 'weakness') {
+                    monster.attackWeakenAmount = 0;
+                    monster.attackWeakenTurns = 0;
+                    return;
+                }
+                if (debuff.type === 'mark') {
+                    monster.damageTakenVulnerabilityPercent = 0;
+                    monster.damageTakenVulnerabilityTurns = 0;
+                    return;
+                }
+                if (debuff.type === 'burn') {
+                    monster.burnDamage = 0;
+                    monster.burnTurns = 0;
+                    return;
+                }
+                if (debuff.type === 'poison') {
+                    monster.poisonDamage = 0;
+                    monster.poisonTurns = 0;
+                    return;
+                }
+                if (debuff.type === 'bleed') {
+                    monster.bleedDamage = 0;
+                    monster.bleedStacks = 0;
+                }
+            });
+
+            const debuffList = transferableDebuffs.map((debuff) => debuff.label).join(', ');
+            const targetLabel = propagationTargets.length > 1 ? 'cibles' : 'cible';
+            playSpellCastSound(0.76);
+            return `${this.name} declenche Epidemie depuis ${monster.name}: ${debuffList} propages sur ${propagationTargets.length} ${targetLabel} (etourdissement non transfere).`;
+        }
+
         if (action === 'Protection') {
             const manaCost = 16;
             if (this.mana < manaCost) {
@@ -2777,7 +2946,7 @@ class Character {
                 return `${this.name} tente Backstab sur ${monster.name}, mais echoue (${percent}% de chance).`;
             }
 
-            const baseDamage = Math.max(1, this.rollWeaponDamageBase(7) * 3);
+            const baseDamage = Math.max(1, this.rollWeaponDamageBase(7) * 2);
             const rawDamage = this.scalePhysicalDamage(baseDamage, action);
             const criticalOutcome = this.rollPhysicalCriticalDamage(rawDamage);
             const damage = monster.takeDamage(criticalOutcome.damage, { damageType: 'physical' });

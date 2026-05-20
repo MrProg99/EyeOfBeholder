@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skills et Passifs - Eye of Beholder</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="skills-page">
+    <main class="skills-layout">
+        <header class="skills-header">
+            <div>
+                <h1>Skills et passifs</h1>
+                <p class="skills-subtitle">Reference des competences actives et passives de chaque classe.</p>
+            </div>
+            <a id="skills-return-link" class="bestiary-link" href="index.html">Retour au jeu</a>
+        </header>
+
+        <section class="skills-rules" aria-label="Regles generales des skills">
+            <h2>Regles generales</h2>
+            <ul>
+                <li>Une competence active est debloquee a son niveau de debloquage puis peut monter jusqu a son rang max.</li>
+                <li>Si aucune description speciale n est indiquee, chaque rang ajoute de la puissance a l action.</li>
+                <li>Les passifs donnent des bonus permanents tant que le personnage est en vie.</li>
+            </ul>
+        </section>
+
+        <section id="skills-grid" class="skills-grid" aria-label="Classes et details de skills"></section>
+    </main>
+
+    <script src="js/character.js"></script>
+    <script src="js/skills.js"></script>
+</body>
+</html>

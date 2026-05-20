@@ -73,6 +73,77 @@ const POTION_DROP_CHANCE = 0.15;
 const SHAMAN_ENCOUNTER_CHANCE = 0.3;
 const KOBOLD_WARBAND_ENCOUNTER_CHANCE = 0.24;
 const MAX_MONSTERS_IN_COMBAT = 8;
+const FLOOR_MONSTER_POOL_BY_TIER = Object.freeze([
+    Object.freeze({
+        maxFloor: 1,
+        entries: Object.freeze([
+            Object.freeze({ type: 'rat', weight: 42 }),
+            Object.freeze({ type: 'goblin', weight: 33 }),
+            Object.freeze({ type: 'kobold', weight: 25 })
+        ])
+    }),
+    Object.freeze({
+        maxFloor: 2,
+        entries: Object.freeze([
+            Object.freeze({ type: 'rat', weight: 28 }),
+            Object.freeze({ type: 'goblin', weight: 30 }),
+            Object.freeze({ type: 'kobold', weight: 24 }),
+            Object.freeze({ type: 'spider', weight: 10 }),
+            Object.freeze({ type: 'orc', weight: 8 })
+        ])
+    }),
+    Object.freeze({
+        maxFloor: 4,
+        entries: Object.freeze([
+            Object.freeze({ type: 'goblin', weight: 19 }),
+            Object.freeze({ type: 'kobold', weight: 16 }),
+            Object.freeze({ type: 'rat', weight: 12 }),
+            Object.freeze({ type: 'orc', weight: 24 }),
+            Object.freeze({ type: 'spider', weight: 17 }),
+            Object.freeze({ type: 'dark_imp', weight: 7 }),
+            Object.freeze({ type: 'cultist', weight: 5 })
+        ])
+    }),
+    Object.freeze({
+        maxFloor: 6,
+        entries: Object.freeze([
+            Object.freeze({ type: 'orc', weight: 18 }),
+            Object.freeze({ type: 'spider', weight: 16 }),
+            Object.freeze({ type: 'dark_imp', weight: 18 }),
+            Object.freeze({ type: 'cultist', weight: 16 }),
+            Object.freeze({ type: 'troll', weight: 14 }),
+            Object.freeze({ type: 'minor_specter', weight: 10 }),
+            Object.freeze({ type: 'rat', weight: 4 }),
+            Object.freeze({ type: 'goblin', weight: 4 })
+        ])
+    }),
+    Object.freeze({
+        maxFloor: 8,
+        entries: Object.freeze([
+            Object.freeze({ type: 'troll', weight: 22 }),
+            Object.freeze({ type: 'dark_imp', weight: 17 }),
+            Object.freeze({ type: 'cultist', weight: 18 }),
+            Object.freeze({ type: 'minor_specter', weight: 20 }),
+            Object.freeze({ type: 'spider', weight: 10 }),
+            Object.freeze({ type: 'orc', weight: 8 }),
+            Object.freeze({ type: 'rat', weight: 3 }),
+            Object.freeze({ type: 'goblin', weight: 2 })
+        ])
+    }),
+    Object.freeze({
+        maxFloor: Number.POSITIVE_INFINITY,
+        entries: Object.freeze([
+            Object.freeze({ type: 'minor_specter', weight: 24 }),
+            Object.freeze({ type: 'troll', weight: 22 }),
+            Object.freeze({ type: 'cultist', weight: 20 }),
+            Object.freeze({ type: 'dark_imp', weight: 17 }),
+            Object.freeze({ type: 'spider', weight: 9 }),
+            Object.freeze({ type: 'orc', weight: 5 }),
+            Object.freeze({ type: 'rat', weight: 2 }),
+            Object.freeze({ type: 'goblin', weight: 1 })
+        ])
+    })
+]);
 const RED_ROOM_XP_MULTIPLIER = 1.25;
 const RED_ROOM_HEALTH_MULTIPLIER = 1.2;
 const RED_ROOM_ATTACK_MULTIPLIER = 1.15;
@@ -524,6 +595,7 @@ const ACTION_MANA_COSTS = Object.freeze({
     'Drain de vie': 14,
     Affaiblissement: 12,
     'Malediction funeste': 18,
+    Epidemie: 20,
     Protection: 16,
     'Soin de groupe': 22,
     Purete: 18,
@@ -551,6 +623,7 @@ const COMBAT_ACTION_ICON_PATHS = Object.freeze({
     Affaiblissement: 'Images/Action_Affaiblissement.png',
     'Drain de vie': 'Images/Action_Draindevie.png',
     'Malediction funeste': 'Images/Action_Malediction.png',
+    Epidemie: 'Images/Action_epidemie.png',
     'Pluie de feu': 'Images/Action_Pluiedefeu.png',
     Protection: 'Images/Action_protection.png',
     'Soin de groupe': 'Images/Action_soinGroupe.png',
@@ -773,6 +846,9 @@ function buildCombatActionHint(action, manaCost = 0, disabledReason = '', charac
     }
     if (action === 'Purete') {
         hintParts.push('Retire les malus de la cible et restaure un peu de PV');
+    }
+    if (action === 'Epidemie') {
+        hintParts.push('Transfere les malus de la cible vers les autres monstres (hors etourdissement)');
     }
     if (disabledReason) {
         hintParts.push(disabledReason);
@@ -1991,7 +2067,7 @@ function updateUI() {
                 }
             }
         } else {
-            const hasKoboldWarband = Math.random() < KOBOLD_WARBAND_ENCOUNTER_CHANCE;
+            const hasKoboldWarband = Math.random() < getKoboldWarbandEncounterChanceForFloor(currentFloorIndex);
             if (hasKoboldWarband) {
                 const warband = createKoboldWarbandEncounter();
                 if (redRoomActive) {
@@ -2004,12 +2080,13 @@ function updateUI() {
                 currentMonsters.push(...warband);
                 room.monsterCount = currentMonsters.length;
             } else {
-                const hasShaman = Math.random() < SHAMAN_ENCOUNTER_CHANCE;
+                const hasShaman = Math.random() < getShamanEncounterChanceForFloor(currentFloorIndex);
                 if (hasShaman) {
                     currentMonsters.push(createMonsterForRoom(room, 'shaman'));
                 }
                 while (currentMonsters.length < count) {
-                    currentMonsters.push(createMonsterForRoom(room));
+                    const rolledMonsterType = rollStandardMonsterTypeForFloor(currentFloorIndex);
+                    currentMonsters.push(createMonsterForRoom(room, rolledMonsterType));
                 }
                 // Randomize order so the shaman is not always first
                 for (let i = currentMonsters.length - 1; i > 0; i--) {
@@ -2062,6 +2139,88 @@ function getRandomIntInclusive(minValue, maxValue) {
     const min = Math.floor(Math.min(minValue, maxValue));
     const max = Math.floor(Math.max(minValue, maxValue));
     return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getFloorNumberFromIndex(floorIndex) {
+    return Math.max(1, Math.floor(Number(floorIndex) || 0) + 1);
+}
+
+function getMonsterPoolForFloor(floorIndex) {
+    const floorNumber = getFloorNumberFromIndex(floorIndex);
+    return FLOOR_MONSTER_POOL_BY_TIER.find((tier) => floorNumber <= tier.maxFloor) || FLOOR_MONSTER_POOL_BY_TIER[FLOOR_MONSTER_POOL_BY_TIER.length - 1];
+}
+
+function pickWeightedMonsterType(entries, fallbackType = 'goblin') {
+    if (!Array.isArray(entries) || entries.length === 0) {
+        return fallbackType;
+    }
+    const normalizedEntries = entries
+        .map((entry) => ({
+            type: entry && typeof entry.type === 'string' ? entry.type : '',
+            weight: Math.max(0, Math.floor(Number(entry && entry.weight) || 0))
+        }))
+        .filter((entry) => entry.type && entry.weight > 0);
+    if (normalizedEntries.length === 0) {
+        return fallbackType;
+    }
+    const totalWeight = normalizedEntries.reduce((sum, entry) => sum + entry.weight, 0);
+    if (totalWeight <= 0) {
+        return normalizedEntries[0].type || fallbackType;
+    }
+    let roll = Math.floor(Math.random() * totalWeight);
+    for (let index = 0; index < normalizedEntries.length; index += 1) {
+        const entry = normalizedEntries[index];
+        roll -= entry.weight;
+        if (roll < 0) {
+            return entry.type;
+        }
+    }
+    return normalizedEntries[normalizedEntries.length - 1].type || fallbackType;
+}
+
+function rollStandardMonsterTypeForFloor(floorIndex) {
+    const tier = getMonsterPoolForFloor(floorIndex);
+    return pickWeightedMonsterType(tier && tier.entries ? tier.entries : [], 'goblin');
+}
+
+function getShamanEncounterChanceForFloor(floorIndex) {
+    const floorNumber = getFloorNumberFromIndex(floorIndex);
+    if (floorNumber <= 1) {
+        return 0;
+    }
+    if (floorNumber <= 2) {
+        return 0.04;
+    }
+    if (floorNumber <= 4) {
+        return 0.12;
+    }
+    if (floorNumber <= 6) {
+        return 0.18;
+    }
+    if (floorNumber <= 8) {
+        return 0.24;
+    }
+    return SHAMAN_ENCOUNTER_CHANCE;
+}
+
+function getKoboldWarbandEncounterChanceForFloor(floorIndex) {
+    const floorNumber = getFloorNumberFromIndex(floorIndex);
+    if (floorNumber <= 1) {
+        return 0;
+    }
+    if (floorNumber <= 2) {
+        return Math.max(0.08, KOBOLD_WARBAND_ENCOUNTER_CHANCE - 0.1);
+    }
+    if (floorNumber <= 4) {
+        return Math.max(0.07, KOBOLD_WARBAND_ENCOUNTER_CHANCE - 0.12);
+    }
+    if (floorNumber <= 6) {
+        return Math.max(0.05, KOBOLD_WARBAND_ENCOUNTER_CHANCE - 0.15);
+    }
+    if (floorNumber <= 8) {
+        return Math.max(0.04, KOBOLD_WARBAND_ENCOUNTER_CHANCE - 0.17);
+    }
+    return Math.max(0.03, KOBOLD_WARBAND_ENCOUNTER_CHANCE * 0.2);
 }
 
 function pickRandomEntry(entries, fallbackValue = '') {
@@ -6420,6 +6579,19 @@ if (openBestiaryButton) {
         if (!bestiaryTab) {
             // Fallback if popups/new tabs are blocked by the browser.
             window.location.href = 'bestiary.html';
+        }
+    });
+}
+
+const openSkillsGuideButton = document.getElementById('open-skills-guide');
+if (openSkillsGuideButton) {
+    openSkillsGuideButton.title = 'Ouvrir le guide des skills et passifs';
+    openSkillsGuideButton.setAttribute('aria-label', 'Ouvrir le guide des skills et passifs');
+    openSkillsGuideButton.addEventListener('click', () => {
+        const skillsTab = window.open('skills.html', '_blank');
+        if (!skillsTab) {
+            // Fallback if popups/new tabs are blocked by the browser.
+            window.location.href = 'skills.html';
         }
     });
 }

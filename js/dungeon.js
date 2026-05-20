@@ -13,6 +13,7 @@ const ASCENT_RED_ROOM_BASE_CHANCE = 0.12;
 const ASCENT_RED_ROOM_FLOOR_STEP_CHANCE = 0.03;
 const ASCENT_RED_ROOM_MAX_CHANCE = 0.4;
 const ASCENT_FORCE_RED_ROOM_ON_FIRST_FLOOR = true;
+const ASCENT_FIRST_FLOOR_RED_ROOM_MIN_MONSTERS = 3;
 const ASCENT_MONSTER_COUNT_TIER_ONE_MAX_FLOOR = 3;
 const ASCENT_MONSTER_COUNT_TIER_TWO_MAX_FLOOR = 6;
 const ASCENT_NODE_TYPES = Object.freeze({
@@ -41,6 +42,9 @@ class Dungeon {
 
     getMonsterCountRangeForFloor(floorIndex) {
         const floorNumber = Math.max(1, Math.floor(Number(floorIndex) || 0) + 1);
+        if (floorNumber <= 1) {
+            return { min: 1, max: 2 };
+        }
         if (floorNumber <= ASCENT_MONSTER_COUNT_TIER_ONE_MAX_FLOOR) {
             return { min: 1, max: 3 };
         }
@@ -61,10 +65,15 @@ class Dungeon {
         if (room && room.nodeType === ASCENT_NODE_TYPES.BOSS) {
             return 1;
         }
+        const floorNumber = Math.max(1, Math.floor(Number(floorIndex) || 0) + 1);
         const range = this.getMonsterCountRangeForFloor(floorIndex);
         const min = Math.max(1, Math.floor(Number(range.min) || 1));
         const max = Math.max(min, Math.floor(Number(range.max) || min));
         const numericCount = Math.floor(Number(rawCount) || 0);
+        if (room && room.isRedRoom && floorNumber <= 1) {
+            const baselineCount = numericCount > 0 ? numericCount : min;
+            return Math.max(ASCENT_FIRST_FLOOR_RED_ROOM_MIN_MONSTERS, baselineCount);
+        }
         if (numericCount <= 0) {
             return this.rollMonsterCountForFloor(floorIndex);
         }
@@ -334,14 +343,22 @@ class Dungeon {
         if (ASCENT_FORCE_RED_ROOM_ON_FIRST_FLOOR && floorIndex === 0) {
             const existingRedRoom = nodes.some((room) => room && room.nodeType === ASCENT_NODE_TYPES.MONSTER && room.isRedRoom);
             if (!existingRedRoom) {
-                const candidates = nodes.filter((room) => (
-                    room
-                    && room.nodeType === ASCENT_NODE_TYPES.MONSTER
-                    && room.row > 0
-                ));
-                const fallbackCandidates = candidates.length > 0
-                    ? candidates
-                    : nodes.filter((room) => room && room.nodeType === ASCENT_NODE_TYPES.MONSTER);
+                const optionalChallengeCandidates = roomsByRow
+                    .filter((rowNodes, rowIndex) => rowIndex > 0 && Array.isArray(rowNodes))
+                    .flatMap((rowNodes) => {
+                        const monsterNodes = rowNodes.filter((room) => room && room.nodeType === ASCENT_NODE_TYPES.MONSTER);
+                        if (monsterNodes.length <= 1) {
+                            return [];
+                        }
+                        return monsterNodes;
+                    });
+                const fallbackCandidates = optionalChallengeCandidates.length > 0
+                    ? optionalChallengeCandidates
+                    : nodes.filter((room) => (
+                        room
+                        && room.nodeType === ASCENT_NODE_TYPES.MONSTER
+                        && room.row > 0
+                    ));
                 if (fallbackCandidates.length > 0) {
                     const forcedIndex = Math.floor(Math.random() * fallbackCandidates.length);
                     fallbackCandidates[forcedIndex].isRedRoom = true;

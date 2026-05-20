@@ -1052,7 +1052,11 @@ class Monster {
 }
 
 function createMonster(forcedType = null, overrides = {}) {
-    const forcedKey = MONSTER_FORCE_KEY_BY_TYPE[forcedType];
+    const normalizedForcedType = typeof forcedType === 'string'
+        ? forcedType.trim().toLowerCase()
+        : '';
+    const forcedKey = MONSTER_FORCE_KEY_BY_TYPE[normalizedForcedType]
+        || (normalizedForcedType && MONSTER_DATA[normalizedForcedType] ? normalizedForcedType : '');
     if (forcedKey && MONSTER_DATA[forcedKey]) {
         return createMonsterFromTemplate(MONSTER_DATA[forcedKey], overrides);
     }
