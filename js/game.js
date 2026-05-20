@@ -70,6 +70,10 @@ const SUMMON_DEFINITIONS = {
 };
 const MONSTER_DROP_CHANCE = 0.35;
 const POTION_DROP_CHANCE = 0.15;
+const STARTING_POTION_LOADOUT = Object.freeze([
+    Object.freeze({ id: 'potion_health', quantity: 3 }),
+    Object.freeze({ id: 'potion_mana', quantity: 2 })
+]);
 const SHAMAN_ENCOUNTER_CHANCE = 0.3;
 const KOBOLD_WARBAND_ENCOUNTER_CHANCE = 0.24;
 const MAX_MONSTERS_IN_COMBAT = 8;
@@ -441,13 +445,17 @@ Object.entries(SOUND_EFFECTS).forEach(([key, path]) => {
     audio.preload = 'auto';
     soundEffectBank[key] = audio;
 });
-const DUNGEON_MAP_MUSIC_PATH = 'Sound/Dungeon.mp3';
+const DUNGEON_MAP_MUSIC_PATHS = ['Sound/Dungeon.mp3', 'Sound/Dungeon2.mp3'];
 const DUNGEON_MAP_MUSIC_VOLUME = 0.32;
-const dungeonMapMusic = new Audio(DUNGEON_MAP_MUSIC_PATH);
-dungeonMapMusic.preload = 'auto';
-dungeonMapMusic.loop = true;
-dungeonMapMusic.volume = DUNGEON_MAP_MUSIC_VOLUME;
-const DUNGEON_COMBAT_MUSIC_PATHS = ['Sound/Battle1.mp3', 'Sound/Battle2.mp3'];
+const dungeonMapMusicTracks = DUNGEON_MAP_MUSIC_PATHS.map((path) => {
+    const audio = new Audio(path);
+    audio.preload = 'auto';
+    audio.loop = true;
+    audio.volume = DUNGEON_MAP_MUSIC_VOLUME;
+    return audio;
+});
+let activeMapMusicTrackIndex = -1;
+const DUNGEON_COMBAT_MUSIC_PATHS = ['Sound/Battle1.mp3', 'Sound/Battle2.mp3', 'Sound/Battle3.mp3'];
 const DUNGEON_COMBAT_MUSIC_VOLUME = 0.34;
 const dungeonCombatMusicTracks = DUNGEON_COMBAT_MUSIC_PATHS.map((path) => {
     const audio = new Audio(path);
@@ -466,11 +474,43 @@ function shouldPlayCombatMusic() {
     return hasGameStarted && inCombat && !isGameOver && !document.hidden;
 }
 
+function pickRandomMapMusicTrackIndex() {
+    if (dungeonMapMusicTracks.length === 0) {
+        return -1;
+    }
+    if (dungeonMapMusicTracks.length === 1) {
+        return 0;
+    }
+    let randomIndex = Math.floor(Math.random() * dungeonMapMusicTracks.length);
+    if (randomIndex === activeMapMusicTrackIndex) {
+        randomIndex = (randomIndex + 1) % dungeonMapMusicTracks.length;
+    }
+    return randomIndex;
+}
+
+function ensureActiveMapMusicTrackIndex() {
+    if (activeMapMusicTrackIndex >= 0 && activeMapMusicTrackIndex < dungeonMapMusicTracks.length) {
+        return activeMapMusicTrackIndex;
+    }
+    activeMapMusicTrackIndex = pickRandomMapMusicTrackIndex();
+    return activeMapMusicTrackIndex;
+}
+
 function playDungeonMapMusic() {
-    if (!dungeonMapMusic.paused) {
+    const trackIndex = ensureActiveMapMusicTrackIndex();
+    if (trackIndex < 0) {
         return;
     }
-    const playPromise = dungeonMapMusic.play();
+    dungeonMapMusicTracks.forEach((track, index) => {
+        if (index !== trackIndex && !track.paused) {
+            track.pause();
+        }
+    });
+    const activeTrack = dungeonMapMusicTracks[trackIndex];
+    if (!activeTrack || !activeTrack.paused) {
+        return;
+    }
+    const playPromise = activeTrack.play();
     if (playPromise && typeof playPromise.catch === 'function') {
         playPromise.catch(() => {
             // Ignore autoplay or transient playback errors.
@@ -479,10 +519,19 @@ function playDungeonMapMusic() {
 }
 
 function pauseDungeonMapMusic() {
-    if (dungeonMapMusic.paused) {
-        return;
-    }
-    dungeonMapMusic.pause();
+    dungeonMapMusicTracks.forEach((track) => {
+        if (!track.paused) {
+            track.pause();
+        }
+    });
+}
+
+function resetDungeonMapMusicSelection() {
+    pauseDungeonMapMusic();
+    dungeonMapMusicTracks.forEach((track) => {
+        track.currentTime = 0;
+    });
+    activeMapMusicTrackIndex = -1;
 }
 
 function pickRandomCombatMusicTrackIndex() {
@@ -1719,6 +1768,7 @@ function loadSavedGameProgress() {
     clearDamageFlashQueue();
     clearMonsterTurnTimeout();
     stopCombatMusic();
+    resetDungeonMapMusicSelection();
     hasGameStarted = true;
 
     const gameOverModal = document.getElementById('game-over-modal');
@@ -1762,10 +1812,30 @@ function createKoboldWarbandEncounter() {
     return [chief, firstKobold, secondKobold].filter(Boolean);
 }
 
+function grantStartingPotions() {
+    if (typeof addItemToPartyInventory !== 'function') {
+        return;
+    }
+    STARTING_POTION_LOADOUT.forEach((entry) => {
+        const itemId = entry && typeof entry.id === 'string' ? entry.id : '';
+        const quantity = Math.max(0, Math.floor(Number(entry && entry.quantity) || 0));
+        if (!itemId || quantity <= 0) {
+            return;
+        }
+        for (let index = 0; index < quantity; index += 1) {
+            addItemToPartyInventory(itemId);
+        }
+    });
+}
+
 function initGame(selection = DEFAULT_PARTY_CLASSES) {
     const partySelection = sanitizePartyClassSelection(selection);
     selectedPartyClasses = [...partySelection];
     characters.length = 0;
+    if (typeof partyInventory !== 'undefined' && Array.isArray(partyInventory)) {
+        partyInventory.length = 0;
+    }
+    grantStartingPotions();
     currentMonsters = [];
     summonedAllies = [];
     inCombat = false;
@@ -2257,6 +2327,7 @@ function buildBossRelicItem(bossType) {
         iceResistanceBonus: 0,
         poisonResistanceBonus: 0,
         manaRegenBonus: 0,
+        healthRegenPerTurn: 0,
         excludeFromDropPool: true,
         isBossRelic: true,
         bossTier: Math.max(1, Math.floor(definition.tier || 1)),
@@ -2271,6 +2342,10 @@ function buildBossRelicItem(bossType) {
         }
         if (statKey === 'manaRegenBonus') {
             item.manaRegenBonus += value;
+            return;
+        }
+        if (statKey === 'healthRegenPerTurn') {
+            item.healthRegenPerTurn += value;
             return;
         }
         const field = BOSS_RELIC_STAT_FIELDS[statKey];
@@ -2295,6 +2370,10 @@ function buildBossRelicItem(bossType) {
         }
         if (range.stat === 'manaRegenBonus') {
             item.manaRegenBonus += roll;
+            return;
+        }
+        if (range.stat === 'healthRegenPerTurn') {
+            item.healthRegenPerTurn += roll;
             return;
         }
         const field = BOSS_RELIC_STAT_FIELDS[range.stat];
@@ -5740,23 +5819,41 @@ function addLootItemToParty(baseItem, options = {}) {
         return null;
     }
     const idPrefix = options && typeof options.idPrefix === 'string' ? options.idPrefix : 'loot';
+    const canCreateGeneratedLoot = typeof addGeneratedItemToPartyInventory === 'function';
     const canRollElementalWeaponBonus = baseItem.type === 'weapon'
         && typeof maybeCreateElementalWeaponLootItem === 'function'
-        && typeof addGeneratedItemToPartyInventory === 'function';
+        && canCreateGeneratedLoot;
+    const canRollHealthRegenBonus = baseItem.type !== 'consumable'
+        && typeof maybeCreateHealthRegenLootItem === 'function'
+        && canCreateGeneratedLoot;
+
+    let candidateItem = baseItem;
+    let generatedSuffix = '';
 
     if (canRollElementalWeaponBonus) {
-        const elementalWeapon = maybeCreateElementalWeaponLootItem(baseItem);
+        const elementalWeapon = maybeCreateElementalWeaponLootItem(candidateItem);
         if (elementalWeapon) {
-            const generatedItem = addGeneratedItemToPartyInventory(
-                {
-                    ...elementalWeapon,
-                    id: ''
-                },
-                { idPrefix: `${idPrefix}_${baseItem.id || 'weapon'}_element` }
-            );
-            if (generatedItem) {
-                return generatedItem;
-            }
+            candidateItem = elementalWeapon;
+            generatedSuffix += '_element';
+        }
+    }
+    if (canRollHealthRegenBonus) {
+        const healthRegenItem = maybeCreateHealthRegenLootItem(candidateItem);
+        if (healthRegenItem) {
+            candidateItem = healthRegenItem;
+            generatedSuffix += '_regen';
+        }
+    }
+    if (generatedSuffix && canCreateGeneratedLoot) {
+        const generatedItem = addGeneratedItemToPartyInventory(
+            {
+                ...candidateItem,
+                id: ''
+            },
+            { idPrefix: `${idPrefix}_${baseItem.id || 'item'}${generatedSuffix}` }
+        );
+        if (generatedItem) {
+            return generatedItem;
         }
     }
 

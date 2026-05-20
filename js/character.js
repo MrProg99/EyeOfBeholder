@@ -41,26 +41,27 @@ const INVENTORY_ITEM_ICONS = {
 };
 const MANA_USING_CLASSES = new Set(['Mage', 'Necromancer', 'Druid']);
 
-const partyInventory = [
-    { id: 'weapon_iron_sword', name: 'Epee en fer', type: 'weapon', minDamage: 7, maxDamage: 11, damageBonus: 0, defenseBonus: 0, strengthBonus: 3, rarity: 'common', quantity: 1 },
-    { id: 'weapon_thief_dagger', name: 'Dague de voleur', type: 'weapon', minDamage: 4, maxDamage: 7, damageBonus: 0, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 1, rarity: 'common', quantity: 1 },
-    { id: 'weapon_shadow_dagger', name: 'Dague de l ombre', type: 'weapon', minDamage: 5, maxDamage: 8, damageBonus: 1, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 2, rarity: 'rare', quantity: 1 },
-    { id: 'weapon_short_sword_bronze', name: 'Epee courte en bronze', type: 'weapon', minDamage: 6, maxDamage: 9, damageBonus: 0, defenseBonus: 0, strengthBonus: 2, rarity: 'common', quantity: 1 },
-    { id: 'weapon_short_sword_steel', name: 'Epee courte en acier', type: 'weapon', minDamage: 7, maxDamage: 10, damageBonus: 1, defenseBonus: 0, strengthBonus: 4, perceptionBonus: 1, rarity: 'rare', quantity: 1 },
-    { id: 'weapon_oak_staff', name: 'Baton renforce', type: 'weapon', minDamage: 3, maxDamage: 6, damageBonus: 0, defenseBonus: 1, strengthBonus: 1, intelligenceBonus: 1, magicBonus: 2, rarity: 'rare', quantity: 1 },
-    { id: 'weapon_hunter_bow', name: 'Arc de chasseur', type: 'weapon', minDamage: 6, maxDamage: 9, damageBonus: 0, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 2, rarity: 'common', quantity: 1 },
-    { id: 'weapon_war_longbow', name: 'Grand arc de guerre', type: 'weapon', minDamage: 7, maxDamage: 11, damageBonus: 1, defenseBonus: 0, strengthBonus: 3, perceptionBonus: 3, rarity: 'rare', quantity: 0 },
-    { id: 'ring_guard', name: 'Anneau de garde', type: 'ring', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, physicalResistanceBonus: 6, rarity: 'common', quantity: 2 },
-    { id: 'ring_rage', name: 'Anneau de rage', type: 'ring', damageBonus: 2, defenseBonus: 0, strengthBonus: 2, magicBonus: 1, rarity: 'rare', quantity: 1 },
-    { id: 'armor_leather', name: 'Armure de cuir', type: 'armor', attackBonus: 0, defenseBonus: 2, vitalityBonus: 2, rarity: 'common', quantity: 1 },
-    { id: 'armor_chain', name: 'Cotte de mailles', type: 'armor', attackBonus: 0, defenseBonus: 4, vitalityBonus: 4, physicalResistanceBonus: 10, rarity: 'epic', quantity: 1 },
-    { id: 'shield_guard_rare', name: 'Bouclier de garde', type: 'offhand', defenseBonus: 1, vitalityBonus: 1, physicalResistanceBonus: 14, rarity: 'rare', quantity: 0 },
-    { id: 'shield_bastion_epic', name: 'Bouclier bastion', type: 'offhand', defenseBonus: 2, vitalityBonus: 2, physicalResistanceBonus: 20, rarity: 'epic', quantity: 0 },
-    { id: 'boots_traveler', name: 'Bottes de voyage', type: 'boots', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, perceptionBonus: 1, rarity: 'common', quantity: 1 },
-    { id: 'boots_scout', name: 'Bottes d eclaireur', type: 'boots', damageBonus: 1, defenseBonus: 1, strengthBonus: 1, perceptionBonus: 2, rarity: 'rare', quantity: 1 },
-    { id: 'potion_health', name: 'Potion de vie', type: 'consumable', consumableKind: 'health', healAmount: 35, rarity: 'common', quantity: 3 },
-    { id: 'potion_mana', name: 'Potion de mana', type: 'consumable', consumableKind: 'mana', manaAmount: 25, rarity: 'common', quantity: 2 }
-];
+const INVENTORY_BASE_ITEMS = Object.freeze([
+    Object.freeze({ id: 'weapon_iron_sword', name: 'Epee en fer', type: 'weapon', minDamage: 7, maxDamage: 11, damageBonus: 0, defenseBonus: 0, strengthBonus: 3, rarity: 'common' }),
+    Object.freeze({ id: 'weapon_thief_dagger', name: 'Dague de voleur', type: 'weapon', minDamage: 4, maxDamage: 7, damageBonus: 0, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 1, rarity: 'common' }),
+    Object.freeze({ id: 'weapon_shadow_dagger', name: 'Dague de l ombre', type: 'weapon', minDamage: 5, maxDamage: 8, damageBonus: 1, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 2, rarity: 'rare' }),
+    Object.freeze({ id: 'weapon_short_sword_bronze', name: 'Epee courte en bronze', type: 'weapon', minDamage: 6, maxDamage: 9, damageBonus: 0, defenseBonus: 0, strengthBonus: 2, rarity: 'common' }),
+    Object.freeze({ id: 'weapon_short_sword_steel', name: 'Epee courte en acier', type: 'weapon', minDamage: 7, maxDamage: 10, damageBonus: 1, defenseBonus: 0, strengthBonus: 4, perceptionBonus: 1, rarity: 'rare' }),
+    Object.freeze({ id: 'weapon_oak_staff', name: 'Baton renforce', type: 'weapon', minDamage: 3, maxDamage: 6, damageBonus: 0, defenseBonus: 1, strengthBonus: 1, intelligenceBonus: 1, magicBonus: 2, rarity: 'rare' }),
+    Object.freeze({ id: 'weapon_hunter_bow', name: 'Arc de chasseur', type: 'weapon', minDamage: 6, maxDamage: 9, damageBonus: 0, defenseBonus: 0, strengthBonus: 2, perceptionBonus: 2, rarity: 'common' }),
+    Object.freeze({ id: 'weapon_war_longbow', name: 'Grand arc de guerre', type: 'weapon', minDamage: 7, maxDamage: 11, damageBonus: 1, defenseBonus: 0, strengthBonus: 3, perceptionBonus: 3, rarity: 'rare' }),
+    Object.freeze({ id: 'ring_guard', name: 'Anneau de garde', type: 'ring', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, physicalResistanceBonus: 6, rarity: 'common' }),
+    Object.freeze({ id: 'ring_rage', name: 'Anneau de rage', type: 'ring', damageBonus: 2, defenseBonus: 0, strengthBonus: 2, magicBonus: 1, rarity: 'rare' }),
+    Object.freeze({ id: 'armor_leather', name: 'Armure de cuir', type: 'armor', attackBonus: 0, defenseBonus: 2, vitalityBonus: 2, rarity: 'common' }),
+    Object.freeze({ id: 'armor_chain', name: 'Cotte de mailles', type: 'armor', attackBonus: 0, defenseBonus: 4, vitalityBonus: 4, physicalResistanceBonus: 10, rarity: 'epic' }),
+    Object.freeze({ id: 'shield_guard_rare', name: 'Bouclier de garde', type: 'offhand', defenseBonus: 1, vitalityBonus: 1, physicalResistanceBonus: 14, rarity: 'rare' }),
+    Object.freeze({ id: 'shield_bastion_epic', name: 'Bouclier bastion', type: 'offhand', defenseBonus: 2, vitalityBonus: 2, physicalResistanceBonus: 20, rarity: 'epic' }),
+    Object.freeze({ id: 'boots_traveler', name: 'Bottes de voyage', type: 'boots', attackBonus: 0, defenseBonus: 1, vitalityBonus: 1, perceptionBonus: 1, rarity: 'common' }),
+    Object.freeze({ id: 'boots_scout', name: 'Bottes d eclaireur', type: 'boots', damageBonus: 1, defenseBonus: 1, strengthBonus: 1, perceptionBonus: 2, rarity: 'rare' }),
+    Object.freeze({ id: 'potion_health', name: 'Potion de vie', type: 'consumable', consumableKind: 'health', healAmount: 35, rarity: 'common' }),
+    Object.freeze({ id: 'potion_mana', name: 'Potion de mana', type: 'consumable', consumableKind: 'mana', manaAmount: 25, rarity: 'common' })
+]);
+const partyInventory = [];
 
 const STARTING_EQUIPMENT_KITS = {
     Warrior: [
@@ -420,6 +421,12 @@ const ELEMENTAL_WEAPON_LOOT_DAMAGE_RANGE_BY_RARITY = {
     rare: { min: 3, max: 6 },
     epic: { min: 4, max: 8 }
 };
+const HEALTH_REGEN_LOOT_BONUS_CHANCE_BY_RARITY = {
+    common: 0.04,
+    rare: 0.1,
+    epic: 0.15
+};
+const HEALTH_REGEN_LOOT_BONUS_RANGE = { min: 1, max: 3 };
 const DAMAGE_TYPE_ALIASES_LOCAL = {
     physical: 'physical',
     physique: 'physical',
@@ -554,6 +561,14 @@ function isWeaponDamageItem(item) {
 function getItemDamageBonus(item) {
     const source = item && typeof item === 'object' ? item : {};
     return normalizeItemDamageValue(source.damageBonus, source.attackBonus, 0);
+}
+
+function getItemHealthRegenPerTurn(item) {
+    const numericValue = Number(item && item.healthRegenPerTurn);
+    if (!Number.isFinite(numericValue)) {
+        return 0;
+    }
+    return Math.max(0, Math.floor(numericValue));
 }
 
 function getDefaultWeaponDamageRangeForItem(item) {
@@ -758,6 +773,40 @@ function maybeCreateElementalWeaponLootItem(baseItem) {
     };
 }
 
+function rollRandomHealthRegenLootBonusValue() {
+    const min = Math.max(1, Math.floor(Number(HEALTH_REGEN_LOOT_BONUS_RANGE.min) || 1));
+    const max = Math.max(min, Math.floor(Number(HEALTH_REGEN_LOOT_BONUS_RANGE.max) || min));
+    return min + Math.floor(Math.random() * ((max - min) + 1));
+}
+
+function maybeCreateHealthRegenLootItem(baseItem) {
+    if (!baseItem || typeof baseItem !== 'object' || baseItem.type === 'consumable') {
+        return null;
+    }
+    if (getItemHealthRegenPerTurn(baseItem) > 0) {
+        return null;
+    }
+
+    const normalizedRarity = normalizeItemRarity(baseItem.rarity);
+    const chance = Number(HEALTH_REGEN_LOOT_BONUS_CHANCE_BY_RARITY[normalizedRarity] || HEALTH_REGEN_LOOT_BONUS_CHANCE_BY_RARITY.common);
+    const clampedChance = Math.max(0, Math.min(1, chance));
+    if (Math.random() > clampedChance) {
+        return null;
+    }
+
+    const rolledBonus = rollRandomHealthRegenLootBonusValue();
+    if (rolledBonus <= 0) {
+        return null;
+    }
+
+    return {
+        ...baseItem,
+        healthRegenPerTurn: rolledBonus,
+        rarity: normalizedRarity,
+        excludeFromDropPool: true
+    };
+}
+
 function formatSignedPercent(value) {
     const normalized = Math.round(Number(value) || 0);
     return `${normalized >= 0 ? '+' : ''}${normalized}%`;
@@ -929,6 +978,7 @@ class Character {
         this.maxMana = this.baseMaxMana + this.getIntelligenceManaBonus();
         this.mana = this.maxMana;
         this.manaRegenPerTurn = 0;
+        this.healthRegenPerTurn = 0;
         this.isBlocking = false;
         this.pendingLevelUp = false;
         this.unspentStatPoints = 0;
@@ -1375,6 +1425,15 @@ class Character {
             const restoredMana = this.mana - beforeMana;
             if (restoredMana > 0) {
                 logs.push(`${this.name} regenere ${restoredMana} mana.`);
+            }
+        }
+        const effectiveHealthRegen = Math.max(0, Math.floor(this.healthRegenPerTurn || 0));
+        if (effectiveHealthRegen > 0 && this.isAlive() && this.health < this.maxHealth) {
+            const beforeHealth = this.health;
+            this.health = Math.min(this.maxHealth, this.health + effectiveHealthRegen);
+            const restoredHealth = this.health - beforeHealth;
+            if (restoredHealth > 0) {
+                logs.push(`${this.name} regenere ${restoredHealth} PV.`);
             }
         }
 
@@ -3306,6 +3365,8 @@ class Character {
         }
 
         this.manaRegenPerTurn += (item.manaRegenBonus || 0) * multiplier;
+        this.healthRegenPerTurn += getItemHealthRegenPerTurn(item) * multiplier;
+        this.healthRegenPerTurn = Math.max(0, this.healthRegenPerTurn);
         DAMAGE_RESISTANCE_CONFIG.forEach((entry) => {
             const resistanceDelta = (resistanceBonuses[entry.bonusField] || 0) * multiplier;
             if (resistanceDelta === 0) {
@@ -3424,6 +3485,7 @@ function equipStartingEquipment(character) {
             perceptionBonus: template.perceptionBonus || 0,
             magicBonus: template.magicBonus || 0,
             manaRegenBonus: template.manaRegenBonus || 0,
+            healthRegenPerTurn: getItemHealthRegenPerTurn(template),
             ...buildItemWeaponDamageFields(template),
             ...buildItemDamageResistanceBonusFields(template),
             ...buildItemElementalDamageBonusFields(template),
@@ -3482,6 +3544,10 @@ function formatItemBonuses(item) {
     }
     if (item.manaRegenBonus) {
         bonuses.push(`+${item.manaRegenBonus} Mana/tour`);
+    }
+    const healthRegenPerTurn = getItemHealthRegenPerTurn(item);
+    if (healthRegenPerTurn > 0) {
+        bonuses.push(`+${healthRegenPerTurn} PV/tour`);
     }
     DAMAGE_RESISTANCE_CONFIG.forEach((entry) => {
         const value = Math.round(resistanceBonuses[entry.bonusField] || 0);
@@ -3546,6 +3612,13 @@ function formatEquipmentSummary(char) {
 
 function getInventoryStackById(itemId) {
     return partyInventory.find((stack) => stack.id === itemId);
+}
+
+function getInventoryBaseItemById(itemId) {
+    if (typeof itemId !== 'string' || itemId.length === 0) {
+        return null;
+    }
+    return INVENTORY_BASE_ITEMS.find((item) => item && item.id === itemId) || null;
 }
 
 function createGeneratedInventoryItemId(prefix = 'loot') {
@@ -3635,6 +3708,7 @@ function takeItemFromInventory(itemId) {
         perceptionBonus: stack.perceptionBonus || 0,
         magicBonus: stack.magicBonus || 0,
         manaRegenBonus: stack.manaRegenBonus || 0,
+        healthRegenPerTurn: getItemHealthRegenPerTurn(stack),
         ...buildItemWeaponDamageFields(stack),
         ...buildItemDamageResistanceBonusFields(stack),
         ...buildItemElementalDamageBonusFields(stack),
@@ -3695,6 +3769,7 @@ function returnItemToInventory(item) {
         perceptionBonus: item.perceptionBonus || 0,
         magicBonus: item.magicBonus || 0,
         manaRegenBonus: item.manaRegenBonus || 0,
+        healthRegenPerTurn: getItemHealthRegenPerTurn(item),
         ...buildItemWeaponDamageFields(item),
         ...buildItemDamageResistanceBonusFields(item),
         ...buildItemElementalDamageBonusFields(item),
@@ -3711,7 +3786,7 @@ function returnItemToInventory(item) {
 }
 
 function getInventoryDropPool() {
-    return partyInventory
+    return INVENTORY_BASE_ITEMS
         .filter((stack) => !stack.excludeFromDropPool)
         .map((stack) => ({
         id: stack.id,
@@ -3725,6 +3800,7 @@ function getInventoryDropPool() {
         perceptionBonus: stack.perceptionBonus || 0,
         magicBonus: stack.magicBonus || 0,
         manaRegenBonus: stack.manaRegenBonus || 0,
+        healthRegenPerTurn: getItemHealthRegenPerTurn(stack),
         ...buildItemWeaponDamageFields(stack),
         ...buildItemDamageResistanceBonusFields(stack),
         ...buildItemElementalDamageBonusFields(stack),
@@ -3736,9 +3812,46 @@ function getInventoryDropPool() {
 }
 
 function addItemToPartyInventory(itemId) {
-    const stack = getInventoryStackById(itemId);
+    let stack = getInventoryStackById(itemId);
     if (!stack) {
-        return null;
+        const baseItem = getInventoryBaseItemById(itemId);
+        if (!baseItem) {
+            return null;
+        }
+        stack = {
+            id: baseItem.id,
+            name: baseItem.name,
+            type: baseItem.type,
+            attackBonus: Math.floor(baseItem.attackBonus || 0),
+            defenseBonus: Math.floor(baseItem.defenseBonus || 0),
+            strengthBonus: Math.floor(baseItem.strengthBonus || 0),
+            intelligenceBonus: Math.floor(baseItem.intelligenceBonus || 0),
+            vitalityBonus: Math.floor(baseItem.vitalityBonus || 0),
+            perceptionBonus: Math.floor(baseItem.perceptionBonus || 0),
+            magicBonus: Math.floor(baseItem.magicBonus || 0),
+            manaRegenBonus: Math.floor(baseItem.manaRegenBonus || 0),
+            healthRegenPerTurn: getItemHealthRegenPerTurn(baseItem),
+            ...buildItemWeaponDamageFields(baseItem),
+            ...buildItemDamageResistanceBonusFields(baseItem),
+            ...buildItemElementalDamageBonusFields(baseItem),
+            consumableKind: baseItem.consumableKind || '',
+            healAmount: Math.floor(baseItem.healAmount || 0),
+            manaAmount: Math.floor(baseItem.manaAmount || 0),
+            rarity: normalizeItemRarity(baseItem.rarity),
+            excludeFromDropPool: Boolean(baseItem.excludeFromDropPool),
+            isBossRelic: Boolean(baseItem.isBossRelic),
+            bossTier: Math.max(0, Math.floor(baseItem.bossTier || 0)),
+            bossKey: baseItem.bossKey || '',
+            quantity: 0
+        };
+        partyInventory.push(stack);
+    }
+
+    if (typeof stack.quantity !== 'number' || !Number.isFinite(stack.quantity)) {
+        stack.quantity = 0;
+    }
+    if (stack.quantity < 0) {
+        stack.quantity = 0;
     }
 
     stack.quantity += 1;
@@ -3754,6 +3867,7 @@ function addItemToPartyInventory(itemId) {
         perceptionBonus: stack.perceptionBonus || 0,
         magicBonus: stack.magicBonus || 0,
         manaRegenBonus: stack.manaRegenBonus || 0,
+        healthRegenPerTurn: getItemHealthRegenPerTurn(stack),
         ...buildItemWeaponDamageFields(stack),
         ...buildItemDamageResistanceBonusFields(stack),
         ...buildItemElementalDamageBonusFields(stack),
@@ -3790,6 +3904,7 @@ function addGeneratedItemToPartyInventory(item, options = {}) {
             perceptionBonus: existingStack.perceptionBonus || 0,
             magicBonus: existingStack.magicBonus || 0,
             manaRegenBonus: existingStack.manaRegenBonus || 0,
+            healthRegenPerTurn: getItemHealthRegenPerTurn(existingStack),
             ...buildItemWeaponDamageFields(existingStack),
             ...buildItemDamageResistanceBonusFields(existingStack),
             ...buildItemElementalDamageBonusFields(existingStack),
@@ -3816,6 +3931,7 @@ function addGeneratedItemToPartyInventory(item, options = {}) {
         perceptionBonus: Math.floor(item.perceptionBonus || 0),
         magicBonus: Math.floor(item.magicBonus || 0),
         manaRegenBonus: Math.floor(item.manaRegenBonus || 0),
+        healthRegenPerTurn: getItemHealthRegenPerTurn(item),
         ...buildItemWeaponDamageFields(item),
         ...buildItemDamageResistanceBonusFields(item),
         ...buildItemElementalDamageBonusFields(item),
@@ -3842,6 +3958,7 @@ function addGeneratedItemToPartyInventory(item, options = {}) {
         perceptionBonus: stack.perceptionBonus || 0,
         magicBonus: stack.magicBonus || 0,
         manaRegenBonus: stack.manaRegenBonus || 0,
+        healthRegenPerTurn: getItemHealthRegenPerTurn(stack),
         ...buildItemWeaponDamageFields(stack),
         ...buildItemDamageResistanceBonusFields(stack),
         ...buildItemElementalDamageBonusFields(stack),
