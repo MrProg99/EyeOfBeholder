@@ -22,6 +22,9 @@ const ASCENT_NODE_TYPES = Object.freeze({
     BOSS: 'boss'
 });
 const ASCENT_BOSS_ROTATION = ['green_slime', 'ice_golem', 'fire_golem', 'spectral_knight', 'spider_queen', 'archimage'];
+const ASCENT_BOSS_FLOOR_OVERRIDES = Object.freeze({
+    7: 'vampire_varkos'
+});
 
 class Dungeon {
     constructor() {
@@ -37,6 +40,10 @@ class Dungeon {
 
     chooseBossTypeForFloor(floorIndex) {
         const normalizedIndex = Math.max(0, Math.floor(Number(floorIndex) || 0));
+        const floorNumber = normalizedIndex + 1;
+        if (typeof ASCENT_BOSS_FLOOR_OVERRIDES[floorNumber] === 'string') {
+            return ASCENT_BOSS_FLOOR_OVERRIDES[floorNumber];
+        }
         return ASCENT_BOSS_ROTATION[normalizedIndex % ASCENT_BOSS_ROTATION.length];
     }
 

@@ -320,6 +320,48 @@ const MONSTER_DATA = {
             'Invocation de spectre'
         ]
     },
+    vampire_varkos: {
+        id: 'vampire_varkos',
+        name: 'Vampire Comte Varkos',
+        monsterLevel: 11,
+        isBoss: true,
+        health: 280,
+        attack: 17,
+        defense: 10,
+        role: 'vampire_varkos',
+        lifeDrainDamage: 20,
+        lifeDrainHealRatio: 0.6,
+        physicalDodgeChance: 0.38,
+        enrageOnHitAttackPercent: 0.1,
+        damageResistances: { magic: 18, poison: 22, bleed: 12 },
+        image: 'Images/Vampire.png',
+        abilities: [
+            'Morsure vampirique (degats + vol de vie)',
+            'Evitement physique eleve',
+            'Soif de sang: +10% degats quand il est touche'
+        ]
+    },
+    croc_noir: {
+        id: 'croc_noir',
+        name: 'Croc-Noir',
+        monsterLevel: 10,
+        isBoss: true,
+        health: 210,
+        attack: 15,
+        defense: 8,
+        role: 'croc_noir',
+        frenzyDamageMultiplier: 1.35,
+        rendingBiteChance: 0.5,
+        rendingBiteBleedDamage: 9,
+        rendingBiteBleedTurns: 2,
+        damageResistances: { physical: 10, poison: 12, bleed: 8 },
+        image: 'Images/CrocNoir.png',
+        abilities: [
+            'Griffes sauvages (attaque physique)',
+            'Morsure dechirante (degats + saignement)',
+            'Frenesie: frappe plus fort si un heros saigne'
+        ]
+    },
     spider: {
         id: 'spider',
         name: 'Araignee',
@@ -383,7 +425,7 @@ const MONSTER_DATA = {
         abilities: ['Attaque basique']
     }
 };
-const MONSTER_SPAWN_POOL = ['goblin', 'orc', 'troll', 'spider', 'dark_imp', 'cultist', 'minor_specter', 'rat', 'cerberus'];
+const MONSTER_SPAWN_POOL = ['goblin', 'orc', 'troll', 'spider', 'dark_imp', 'cultist', 'minor_specter', 'rat', 'cerberus', 'vampire_varkos', 'croc_noir'];
 const MONSTER_FORCE_KEY_BY_TYPE = {
     shaman: 'shaman',
     kobold: 'kobold',
@@ -394,6 +436,8 @@ const MONSTER_FORCE_KEY_BY_TYPE = {
     cultist: 'cultist',
     minor_specter: 'minor_specter',
     cerberus: 'cerberus',
+    vampire_varkos: 'vampire_varkos',
+    croc_noir: 'croc_noir',
     green_slime: 'green_slime',
     ice_golem: 'ice_golem',
     fire_golem: 'fire_golem',
@@ -652,6 +696,17 @@ class Monster {
         this.lifeDrainChance = Number.isFinite(options.lifeDrainChance)
             ? Math.max(0, Math.min(1, Number(options.lifeDrainChance)))
             : 0;
+        this.enrageOnHitAttackPercent = Number.isFinite(options.enrageOnHitAttackPercent)
+            ? Math.max(0, Number(options.enrageOnHitAttackPercent))
+            : 0;
+        this.frenzyDamageMultiplier = Number.isFinite(options.frenzyDamageMultiplier)
+            ? Math.max(1, Number(options.frenzyDamageMultiplier))
+            : 1;
+        this.rendingBiteChance = Number.isFinite(options.rendingBiteChance)
+            ? Math.max(0, Math.min(1, Number(options.rendingBiteChance)))
+            : 0;
+        this.rendingBiteBleedDamage = Math.max(0, Math.floor(options.rendingBiteBleedDamage || 0));
+        this.rendingBiteBleedTurns = Math.max(0, Math.floor(options.rendingBiteBleedTurns || 0));
         this.magicMissileDamage = Math.max(0, Math.floor(options.magicMissileDamage || 0));
         this.magicMissileManaCost = Math.max(0, Math.floor(options.magicMissileManaCost || 0));
         this.chainLightningDamage = Math.max(0, Math.floor(options.chainLightningDamage || 0));
@@ -815,6 +870,28 @@ class Monster {
         if (finalDamage > 0 && attacker) {
             this.lastAttackerEntity = attacker;
         }
+        if (
+            finalDamage > 0
+            && !isDamageOverTime
+            && this.enrageOnHitAttackPercent > 0
+            && this.health > 0
+        ) {
+            const boostedAttack = Math.max(
+                this.attack + 1,
+                Math.round(this.attack * (1 + this.enrageOnHitAttackPercent))
+            );
+            this.attack = boostedAttack;
+            if (this.lifeDrainDamage > 0) {
+                this.lifeDrainDamage = Math.max(
+                    this.lifeDrainDamage + 1,
+                    Math.round(this.lifeDrainDamage * (1 + this.enrageOnHitAttackPercent))
+                );
+            }
+            if (typeof logMessage === 'function') {
+                const bonusPercent = Math.round(this.enrageOnHitAttackPercent * 100);
+                logMessage(`${this.name} entre en rage sanguine (+${bonusPercent}% degats).`);
+            }
+        }
         if (this.health <= 0) {
             this.health = 0;
             if (wasAliveBeforeHit && finalDamage > 0 && typeof window.playSoundEffect === 'function') {
@@ -891,6 +968,14 @@ class Monster {
 
     isCerberus() {
         return this.role === 'cerberus';
+    }
+
+    isVampireVarkos() {
+        return this.role === 'vampire_varkos';
+    }
+
+    isCrocNoir() {
+        return this.role === 'croc_noir';
     }
 
     isArchmage() {

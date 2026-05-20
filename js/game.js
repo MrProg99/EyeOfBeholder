@@ -218,6 +218,8 @@ const MONSTER_PORTRAITS = {
     'Chevalier spectrale': 'Images/ChevalierSpectrale.png',
     'Reine araignee': 'Images/ReineAraignee.png',
     Archimage: 'Images/Archimage.png',
+    'Vampire Comte Varkos': 'Images/Vampire.png',
+    'Croc-Noir': 'Images/CrocNoir.png',
     Cerbere: 'Images/Cerbere.png',
     Rat: 'Images/Rat.png',
     'Gobelin ingenieur': 'Images/GobelinIngenieur.png',
@@ -272,6 +274,8 @@ const INITIATIVE_BASE = {
         'Chevalier spectrale': 10,
         'Reine araignee': 12,
         Archimage: 13,
+        'Vampire Comte Varkos': 14,
+        'Croc-Noir': 15,
         Cerbere: 10,
         Rat: 16,
         'Gobelin ingenieur': 12,
@@ -421,6 +425,26 @@ const BOSS_RELIC_DEFINITIONS = {
             { stat: 'fireResistance', min: 6, max: 12 },
             { stat: 'iceResistance', min: 6, max: 12 },
             { stat: 'manaRegenBonus', min: 2, max: 5 }
+        ]
+    },
+    vampire_varkos: {
+        tier: 7,
+        type: 'ring',
+        rarity: 'epic',
+        names: ['Sceau nocturne de Varkos', 'Anneau de soif eternelle', 'Insigne du comte sanguin'],
+        guaranteed: {
+            strength: 4,
+            vitality: 4,
+            physicalResistance: 14,
+            poisonResistance: 20
+        },
+        randomRanges: [
+            { stat: 'strength', min: 2, max: 4 },
+            { stat: 'vitality', min: 2, max: 4 },
+            { stat: 'perception', min: 1, max: 3 },
+            { stat: 'physicalResistance', min: 6, max: 12 },
+            { stat: 'magicResistance', min: 4, max: 10 },
+            { stat: 'manaRegenBonus', min: 1, max: 4 }
         ]
     }
 };
@@ -1858,6 +1882,12 @@ function createKoboldWarbandEncounter() {
     return [chief, firstKobold, secondKobold].filter(Boolean);
 }
 
+function createVarkosBossEncounter() {
+    const varkos = createMonster('vampire_varkos');
+    const crocNoir = createMonster('croc_noir');
+    return [varkos, crocNoir].filter(Boolean);
+}
+
 function grantStartingPotions() {
     if (typeof addItemToPartyInventory !== 'function') {
         return;
@@ -2218,6 +2248,19 @@ function updateUI() {
                     }
                 });
                 currentMonsters.push(...warband);
+                room.monsterCount = currentMonsters.length;
+            } else if (forcedMonsterType === 'vampire_varkos') {
+                const varkosDuo = createVarkosBossEncounter();
+                varkosDuo.forEach((monster) => {
+                    if (!monster) {
+                        return;
+                    }
+                    applyFloorMonsterModifiers(monster, currentFloorIndex);
+                    if (redRoomActive) {
+                        applyRedRoomMonsterModifiers(monster);
+                    }
+                });
+                currentMonsters.push(...varkosDuo);
                 room.monsterCount = currentMonsters.length;
             } else {
                 for (let i = 0; i < count; i += 1) {
@@ -3598,6 +3641,12 @@ function updateCombatUI() {
         if (typeof m.isArchmage === 'function' && m.isArchmage()) {
             roleTags.push('Archimage');
         }
+        if (typeof m.isVampireVarkos === 'function' && m.isVampireVarkos()) {
+            roleTags.push('Vampire');
+        }
+        if (typeof m.isCrocNoir === 'function' && m.isCrocNoir()) {
+            roleTags.push('Bete');
+        }
         if (typeof m.isCerberus === 'function' && m.isCerberus()) {
             roleTags.push('Cerbere');
         }
@@ -4153,6 +4202,12 @@ function performMonsterTurnEntity(monster) {
     const usedArchmageAction = (typeof monster.isArchmage === 'function' && monster.isArchmage())
         ? performArchmageAction(monster, aliveMonsters, alliedTargets, aliveChars)
         : false;
+    const usedVarkosAction = (typeof monster.isVampireVarkos === 'function' && monster.isVampireVarkos())
+        ? performVampireVarkosAction(monster, alliedTargets, aliveChars)
+        : false;
+    const usedCrocNoirAction = (typeof monster.isCrocNoir === 'function' && monster.isCrocNoir())
+        ? performCrocNoirAction(monster, alliedTargets, aliveChars)
+        : false;
     const usedRatAction = (typeof monster.isRat === 'function' && monster.isRat())
         ? performRatAction(monster, alliedTargets, aliveChars)
         : false;
@@ -4178,6 +4233,8 @@ function performMonsterTurnEntity(monster) {
         && !usedMinorSpecterAction
         && !usedDarkImpAction
         && !usedArchmageAction
+        && !usedVarkosAction
+        && !usedCrocNoirAction
         && !usedRatAction
         && !usedCerberusAction
         && !usedGoblinEngineerAction
@@ -5508,6 +5565,116 @@ function performCerberusAction(cerberus, aliveAllies, aliveChars) {
     logRiposteOutcome(damageContext.riposteOutcome);
     if (!biteTarget.isAlive() && biteTarget.entityType === 'summon') {
         logMessage(`${biteTarget.name} est detruit.`);
+    }
+    return true;
+}
+
+function performVampireVarkosAction(varkos, aliveAllies, aliveChars) {
+    if (!varkos || typeof varkos.isVampireVarkos !== 'function' || !varkos.isVampireVarkos()) {
+        return false;
+    }
+
+    const livingAllies = Array.isArray(aliveAllies) ? aliveAllies.filter((entity) => entity && entity.isAlive()) : [];
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    if (livingAllies.length === 0 || livingHeroes.length === 0) {
+        return false;
+    }
+
+    const biteTarget = pickMonsterAttackTarget(livingAllies);
+    if (!biteTarget) {
+        return false;
+    }
+
+    const drainDamage = Math.max(1, Math.floor(varkos.lifeDrainDamage || varkos.getCurrentAttack() || varkos.attack || 1));
+    const biteDamage = biteTarget.takeDamage(drainDamage, {
+        damageType: 'magic',
+        attacker: varkos,
+        enableRiposte: false
+    });
+    const drainRatio = Number.isFinite(varkos.lifeDrainHealRatio)
+        ? Math.max(0, Math.min(1, Number(varkos.lifeDrainHealRatio)))
+        : 0.5;
+    const healAmount = Math.max(1, Math.round(biteDamage * drainRatio));
+    const beforeHealth = varkos.health;
+    varkos.health = Math.min(varkos.maxHealth, varkos.health + healAmount);
+    const restored = Math.max(0, varkos.health - beforeHealth);
+
+    logMessage(`${varkos.name} utilise Morsure vampirique sur ${biteTarget.name}: ${biteDamage} degats, ${restored} PV recuperes.`);
+    if (!biteTarget.isAlive() && biteTarget.entityType === 'summon') {
+        logMessage(`${biteTarget.name} est detruit.`);
+    }
+    return true;
+}
+
+function performCrocNoirAction(crocNoir, aliveAllies, aliveChars) {
+    if (!crocNoir || typeof crocNoir.isCrocNoir !== 'function' || !crocNoir.isCrocNoir()) {
+        return false;
+    }
+
+    const livingAllies = Array.isArray(aliveAllies) ? aliveAllies.filter((entity) => entity && entity.isAlive()) : [];
+    const livingHeroes = Array.isArray(aliveChars) ? aliveChars.filter((entity) => entity && entity.isAlive()) : [];
+    if (livingAllies.length === 0 || livingHeroes.length === 0) {
+        return false;
+    }
+
+    const target = pickMonsterAttackTarget(livingAllies);
+    if (!target) {
+        return false;
+    }
+
+    const frenzyActive = livingHeroes.some((hero) => (
+        hero
+        && typeof hero.isBleeding === 'function'
+        && hero.isBleeding()
+    ));
+    const frenzyMultiplier = frenzyActive
+        ? Math.max(1, Number(crocNoir.frenzyDamageMultiplier || 1))
+        : 1;
+    const baseAttack = typeof crocNoir.getCurrentAttack === 'function' ? crocNoir.getCurrentAttack() : crocNoir.attack;
+    const useRendingBite = Math.random() < Math.max(0, Math.min(1, Number(crocNoir.rendingBiteChance || 0.5)));
+
+    if (useRendingBite) {
+        const rawDamage = Math.max(1, Math.round((baseAttack + 2) * frenzyMultiplier));
+        const damageContext = {
+            damageType: 'physical',
+            attacker: crocNoir,
+            enableRiposte: true
+        };
+        const damage = target.takeDamage(rawDamage, damageContext);
+        let bleedText = '';
+        const bleedDamage = Math.max(1, Math.floor(crocNoir.rendingBiteBleedDamage || (baseAttack * 0.45)));
+        const bleedTurns = Math.max(1, Math.floor(crocNoir.rendingBiteBleedTurns || 2));
+        if (
+            damage > 0
+            && typeof target.applyBleed === 'function'
+            && typeof target.isAlive === 'function'
+            && target.isAlive()
+        ) {
+            const appliedTurns = Math.max(1, Math.floor(Number(target.applyBleed(bleedDamage, bleedTurns)) || bleedTurns));
+            const turnLabel = appliedTurns > 1 ? 'tours' : 'tour';
+            bleedText = ` ${target.name} saigne (${bleedDamage} degats/tour, ${appliedTurns} ${turnLabel}).`;
+        }
+        const frenzyText = frenzyActive ? ' [Frenesie]' : '';
+        logMessage(`${crocNoir.name}${frenzyText} utilise Morsure dechirante sur ${target.name} et inflige ${damage} degats.${bleedText}`);
+        logRiposteOutcome(damageContext.riposteOutcome);
+        if (!target.isAlive() && target.entityType === 'summon') {
+            logMessage(`${target.name} est detruit.`);
+        }
+        return true;
+    }
+
+    const rawClawDamage = Math.max(1, Math.round(baseAttack * frenzyMultiplier));
+    const clawContext = {
+        damageType: 'physical',
+        attacker: crocNoir,
+        enableRiposte: true
+    };
+    const clawDamage = target.takeDamage(rawClawDamage, clawContext);
+    const frenzyText = frenzyActive ? ' [Frenesie]' : '';
+    logMessage(`${crocNoir.name}${frenzyText} utilise Griffes sauvages sur ${target.name} et inflige ${clawDamage} degats.`);
+    logRiposteOutcome(clawContext.riposteOutcome);
+    if (!target.isAlive() && target.entityType === 'summon') {
+        logMessage(`${target.name} est detruit.`);
     }
     return true;
 }

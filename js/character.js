@@ -155,7 +155,16 @@ const COLD_NUMB_DEFAULT_TURNS = 2;
 const BURN_DEFAULT_TURNS = 2;
 const BLEED_DEFAULT_TURNS = 2;
 const SKILL_RANK_POWER_BONUS = 0.12;
-const ARCHER_BOSS_MONSTER_TYPES = new Set(['green_slime', 'ice_golem', 'fire_golem', 'spectral_knight', 'spider_queen', 'archimage']);
+const ARCHER_BOSS_MONSTER_TYPES = new Set([
+    'green_slime',
+    'ice_golem',
+    'fire_golem',
+    'spectral_knight',
+    'spider_queen',
+    'archimage',
+    'vampire_varkos',
+    'croc_noir'
+]);
 const DEFAULT_WEAPON_DAMAGE_RANGE_BY_FAMILY = {
     sword: { minDamage: 7, maxDamage: 11 },
     short_sword: { minDamage: 6, maxDamage: 9 },
@@ -438,7 +447,9 @@ const DAMAGE_TYPE_ALIASES_LOCAL = {
     feu: 'fire',
     ice: 'ice',
     glace: 'ice',
-    poison: 'poison'
+    poison: 'poison',
+    bleed: 'bleed',
+    saignement: 'bleed'
 };
 
 function classUsesMana(classType) {
